@@ -28,6 +28,19 @@ Frontend (HTML/CSS/JS) - Supermarkets ranked cheapest first, product choices, fa
 
 ## Installation on Raspberry Pi
 
+### With Docker
+```bash
+git clone <repo-url> ~/supermarket-scraper
+cd ~/supermarket-scraper
+mkdir -p data
+docker compose up -d --build
+```
+
+The app runs at `http://<your-rasp-ip>:5000` and restarts with the Pi. Favourites are saved in `data/favourites.json`.
+To update: `git pull && docker compose up -d --build`.
+
+### Without Docker
+
 ### 1. SSH into your Raspberry Pi
 ```bash
 ssh pi@raspberrypi.local

@@ -1,0 +1,11 @@
+services:
+  supermarket-scraper:
+    build: .
+    container_name: supermarket-scraper
+    restart: unless-stopped
+    # Same user as the owner of ./data, so the favourites can be written
+    user: "${UID:-1000}:${GID:-1000}"
+    ports:
+      - "5000:5000"
+    volumes:
+      - ./data:/data
