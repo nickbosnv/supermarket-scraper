@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="el">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Price Finder - Supermarket Comparison</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🛒 Supermarket Price Finder</h1>
+            <p class="subtitle">Βρες τη καλύτερη τιμή στα 3 supermarkets</p>
+            <nav class="nav">
+                <a href="/" class="nav-link nav-current">🔍 Αναζήτηση</a>
+                <a href="/favourites" class="nav-link">⭐ Αγαπημένα</a>
+            </nav>
+        </header>
+
+        <div class="input-section">
+            <div class="input-group">
+                <div class="input-wrapper">
+                    <textarea
+                        id="productInput"
+                        placeholder="Γράψε τα προϊόντα που ψάχνεις&#10;π.χ. Lenor Joy Gold&#10;Ariel Pods&#10;Καφές Lavazza"
+                        rows="5"
+                        autocomplete="off"
+                    ></textarea>
+                    <div id="suggestions" class="suggestions hidden"></div>
+                </div>
+                <button onclick="searchProducts()" class="btn-search">🔍 Αναζήτηση</button>
+            </div>
+            <div class="info-box">
+                <p>✨ Βρίσκει <strong>το ίδιο προϊόν</strong> σε κάθε supermarket και τα κατατάσσει από το <strong>φθηνότερο ανά κιλό / λίτρο</strong></p>
+                <p>🔄 Αν δεν είναι αυτό που ήθελες, διάλεξε άλλο από τα <strong>πιθανά προϊόντα</strong> ή άλλαξέ το σε ένα supermarket</p>
+                <p>⭐ Πάτα το αστέρι για να το κρατήσεις στα <strong>αγαπημένα</strong>. Όταν γράφεις, σου προτείνει αγαπημένα που ταιριάζουν</p>
+            </div>
+        </div>
+
+        <div id="resultsContainer" class="results-hidden">
+            <div id="results"></div>
+        </div>
+
+        <div id="loading" class="loading hidden">
+            <div class="spinner"></div>
+            <p>Ψάχνω τα supermarkets...</p>
+        </div>
+    </div>
+
+    <script src="{{ url_for('static', filename='script.js') }}"></script>
+</body>
+</html>

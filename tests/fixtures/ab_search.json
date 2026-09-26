@@ -1,0 +1,50 @@
+{
+  "data": {
+    "productSearch": {
+      "products": [
+        {
+          "code": "7344931",
+          "name": "Γάλα Υψηλής Θερμικής Επεξεργασίας Πλήρες 1lt",
+          "manufacturerName": "ΑΒ ΕΠΙΛΟΓΗ",
+          "url": "/el/eshop/Galaktokomika-Fytika-Rofimata-and-Eidi-Psygeioy/Gala-and-Fytika-Rofimata/Gala-Ypsilis-Pasteriosis/Gala-Ypsilis-Thermikis-Epexergasias-Plires-1lt/p/7344931",
+          "categories": [{"name": "Γάλα Υψηλής Παστερίωσης"}],
+          "price": {
+            "value": 1.05,
+            "discountedPriceFormatted": "€1,05",
+            "supplementaryPriceLabel1": "1,05 €/ λιτ",
+            "supplementaryPriceLabel2": "1 λιτ"
+          }
+        },
+        {
+          "code": "7344879",
+          "name": "Γάλα Υψηλής Θερμικής Επεξεργασίας Ελαφρύ 1lt",
+          "manufacturerName": "ΑΒ ΕΠΙΛΟΓΗ",
+          "url": "/el/eshop/Galaktokomika-Fytika-Rofimata-and-Eidi-Psygeioy/Gala-and-Fytika-Rofimata/Gala-Ypsilis-Pasteriosis/Gala-Ypsilis-Thermikis-Epexergasias-Elafry-1lt/p/7344879",
+          "categories": [{"name": "Γάλα Υψηλής Παστερίωσης"}],
+          "price": {
+            "value": 1.05,
+            "discountedPriceFormatted": "€1,05",
+            "supplementaryPriceLabel1": "1,05 €/ λιτ",
+            "supplementaryPriceLabel2": "1 λιτ"
+          }
+        },
+        {
+          "code": "7814622",
+          "name": "Συμπυκνωμένο Μαλακτικό Ocean Breeze 87 Μεζούρες",
+          "manufacturerName": "LENOR",
+          "url": "/el/eshop/Katharistika-Chartika-and-eidi-spitioy/Malaktika-roychon/Sympyknomena-Mallaktika-Roychon/Sympyknomeno-Malaktiko-Ocean-Breeze-87-Mezoyres/p/7814622",
+          "categories": [{"name": "Συμπυκνωμένα Μαλλακτικά Ρούχων"}],
+          "price": {
+            "value": 5.49,
+            "discountedPriceFormatted": "€5,49",
+            "supplementaryPriceLabel1": "0,06 €/ μεζ",
+            "supplementaryPriceLabel2": "87 μεζ"
+          }
+        }
+      ],
+      "pagination": {
+        "totalPages": 1
+      }
+    }
+  }
+}

@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="el">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Αγαπημένα - Supermarket Price Finder</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>⭐ Αγαπημένα</h1>
+            <p class="subtitle">Τα προϊόντα που αγοράζεις συχνά, με τις τιμές τους τώρα</p>
+            <nav class="nav">
+                <a href="/" class="nav-link">🔍 Αναζήτηση</a>
+                <a href="/favourites" class="nav-link nav-current">⭐ Αγαπημένα</a>
+            </nav>
+        </header>
+
+        <div class="favourites-section">
+            <div class="favourites-header">
+                <h2>Τα αγαπημένα μου</h2>
+                <button onclick="checkFavourites()" class="btn-check-favourites" disabled>🔄 Τιμές όλων</button>
+            </div>
+            <ul id="favouritesList"></ul>
+        </div>
+
+        <div id="resultsContainer" class="results-hidden">
+            <div id="results"></div>
+        </div>
+
+        <div id="loading" class="loading hidden">
+            <div class="spinner"></div>
+            <p>Ψάχνω τα supermarkets...</p>
+        </div>
+    </div>
+
+    <script src="{{ url_for('static', filename='script.js') }}"></script>
+</body>
+</html>
