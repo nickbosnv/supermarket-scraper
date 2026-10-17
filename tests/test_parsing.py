@@ -4,6 +4,7 @@ from supermarket_scraper import (
     calculate_unit_price,
     extract_size,
     parse_price,
+    parse_quantity,
     parse_unit_price_label,
     sort_by_value,
     unit_price,
@@ -117,11 +118,31 @@ def test_parse_unit_price_label(label, expected):
     ('NOYNOY Συμπυκνωμένο Γάλα 4x170gr', '4x170gr'),
     ('ΜΑΡΑΤΑ Φρέσκο Γάλα Πλήρες 3,5% 1lt', '1lt'),
     ('Lenor Μαλακτικό Joy Gold 126μεζ 2646ml', '126μεζ'),
+    ('Pampers Νο4 (9-14kg) 50τεμ', '50τεμ'),
     ('Μπανάνες BAJELLA Εισαγωγής', ''),
     ('', ''),
 ])
 def test_extract_size(name, size):
     assert extract_size(name) == size
+
+
+@pytest.mark.parametrize('text, quantity', [
+    ('Γάλα 1 λίτρο', (1.0, 'L')),
+    ('Νερό 1,5 λίτρα', (1.5, 'L')),
+    ('Λάδι 4 Λίτρα', (4.0, 'L')),
+    ('Ζάχαρη 500 γραμμάρια', (0.5, 'kg')),
+    ('1,5 λιτ', (1.5, 'L')),
+    ('Αλάτι 1 κιλό', (1.0, 'kg')),
+    ('6x330ml', (1.98, 'L')),
+    # The size, not the baby's weight in parentheses
+    ('Pampers Νο4 (9-14kg) 50τεμ', (50.0, 'unit')),
+    # Only a size in parentheses
+    ('Μπύρα (6x330ml)', (1.98, 'L')),
+    ('Μπανάνες', None),
+    (None, None),
+])
+def test_parse_quantity(text, quantity):
+    assert parse_quantity(text) == quantity
 
 
 def _product(value, unit):

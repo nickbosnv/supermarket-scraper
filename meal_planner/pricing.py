@@ -21,6 +21,9 @@ from concurrent.futures import ThreadPoolExecutor
 
 log = logging.getLogger(__name__)
 
+# An empty search may be a store that did not answer: search again sooner
+EMPTY_TTL = 3600
+
 STORES = {"ab": "ΑΒ Βασιλόπουλος", "sklavenitis": "Σκλαβενίτης", "mymarket": "My Market"}
 
 _UNITS = {
@@ -69,12 +72,13 @@ class PriceProvider:
             return {}
 
     def save(self):
+        # Under the lock until the file is replaced: two saves at once would share the .tmp file
         with self.lock:
             data = json.dumps(self.cache, ensure_ascii=False)
-        tmp = self.cache_path + ".tmp"
-        with open(tmp, "w", encoding="utf-8") as f:
-            f.write(data)
-        os.replace(tmp, self.cache_path)
+            tmp = self.cache_path + ".tmp"
+            with open(tmp, "w", encoding="utf-8") as f:
+                f.write(data)
+            os.replace(tmp, self.cache_path)
 
     def clear(self):
         with self.lock:
@@ -86,7 +90,8 @@ class PriceProvider:
         key = f"{store}:{ing_id}"
         with self.lock:
             hit = self.cache.get(key)
-        if hit and not force and time.time() - hit["t"] < self.ttl:
+        ttl = self.ttl if hit and hit.get("found", True) else EMPTY_TTL
+        if hit and not force and time.time() - hit["t"] < ttl:
             return hit["opts"]
         if not self.search_fn:
             return []
@@ -97,6 +102,11 @@ class PriceProvider:
         except Exception as e:  # a broken scraper must not fail the plan
             log.warning("search %s/%s failed: %s", store, ing["query"], e)
             return hit["opts"] if hit else []
+        if not raw and hit and hit["opts"]:
+            # Keep the known prices when a store returns nothing, and search again after EMPTY_TTL
+            with self.lock:
+                self.cache[key] = {"t": time.time(), "opts": hit["opts"], "found": False}
+            return hit["opts"]
         match = [norm(m) for m in ing.get("match", [])]
         excl = [norm(x) for x in ing.get("exclude", [])]
         opts = []
@@ -110,7 +120,7 @@ class PriceProvider:
                 continue
             opts.append({k: p[k] for k in ("name", "price", "size", "url")})
         with self.lock:
-            self.cache[key] = {"t": time.time(), "opts": opts}
+            self.cache[key] = {"t": time.time(), "opts": opts, "found": bool(raw)}
         return opts
 
     def products(self, store, query):

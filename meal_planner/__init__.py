@@ -54,6 +54,14 @@ def _err(msg, code=400):
     return jsonify({"error": msg}), code
 
 
+def _body():
+    """The JSON object of the request. Only application/json, so other sites cannot post to it from a form."""
+    body = request.get_json(silent=True)
+    if not isinstance(body, dict):
+        raise ValueError("Λάθος αίτημα.")
+    return body
+
+
 @meal_bp.get("/")
 def page():
     return render_template("meal_planner.html")
@@ -80,8 +88,9 @@ def get_plan():
 @meal_bp.post("/api/plan")
 def new_plan():
     try:
+        body = _body()
         with _lock:
-            plan = planner.generate(request.get_json(force=True) or {})
+            plan = planner.generate(body)
             _save_plan(plan)
     except ValueError as e:
         return _err(str(e))
@@ -90,14 +99,17 @@ def new_plan():
 
 @meal_bp.post("/api/swap")
 def swap():
-    body = request.get_json(force=True) or {}
+    try:
+        body = _body()
+    except ValueError as e:
+        return _err(str(e))
     with _lock:
         plan = _load_plan()
         if not plan:
             return _err("Δεν υπάρχει πλάνο.")
         try:
             plan = planner.swap(plan, int(body["day"]), body["meal"])
-        except (KeyError, ValueError) as e:
+        except (KeyError, TypeError, ValueError) as e:
             return _err(str(e))
         _save_plan(plan)
     return jsonify(plan)
@@ -119,7 +131,10 @@ def alternatives():
 @meal_bp.post("/api/choose")
 def choose():
     """Put the chosen recipe ({day, meal, recipe_id}) in a meal."""
-    body = request.get_json(force=True) or {}
+    try:
+        body = _body()
+    except ValueError as e:
+        return _err(str(e))
     with _lock:
         plan = _load_plan()
         if not plan:
@@ -142,9 +157,12 @@ def recipe(rid):
 
 @meal_bp.post("/api/refresh-prices")
 def refresh_prices():
-    """Clear the price cache and reprice the current plan."""
+    """Search again the prices of the current plan and reprice it. A store that does not answer keeps its prices."""
+    try:
+        _body()
+    except ValueError as e:
+        return _err(str(e))
     with _lock:
-        price_provider.clear()
         plan = _load_plan()
         if plan:
             s = plan["settings"]
@@ -179,7 +197,10 @@ def custom_list():
 @meal_bp.post("/api/custom")
 def custom_save():
     """Create or update an own recipe (format in custom.save)."""
-    body = request.get_json(force=True) or {}
+    try:
+        body = _body()
+    except ValueError as e:
+        return _err(str(e))
     with _lock:
         plan, cooks = _plan_cooks(body.get("id"))
         if any((c["kind"] == "breakfast") != (body.get("meal") == "breakfast") for c in cooks):
@@ -196,6 +217,10 @@ def custom_save():
 
 @meal_bp.post("/api/custom/<rid>/delete")
 def custom_delete(rid):
+    try:
+        _body()
+    except ValueError as e:
+        return _err(str(e))
     with _lock:
         if _plan_cooks(rid)[1]:
             return _err("Η συνταγή είναι στο πλάνο της εβδομάδας. Άλλαξέ τη με ↻ και μετά διάγραψέ τη.")
@@ -210,14 +235,20 @@ def custom_delete(rid):
 @meal_bp.post("/api/custom/parse")
 def custom_parse():
     """A draft recipe from pasted text, to check and correct in the form."""
-    body = request.get_json(force=True) or {}
+    try:
+        body = _body()
+    except ValueError as e:
+        return _err(str(e))
     return jsonify(custom.parse(str(body.get("text") or "")[:20000], planner.ingredients))
 
 
 @meal_bp.post("/api/custom/appliances")
 def custom_appliances():
     """The appliances found in the steps of a recipe ({text}), to tick them in the form."""
-    body = request.get_json(force=True) or {}
+    try:
+        body = _body()
+    except ValueError as e:
+        return _err(str(e))
     return jsonify(detect_appliances(str(body.get("text") or "")[:20000]))
 
 

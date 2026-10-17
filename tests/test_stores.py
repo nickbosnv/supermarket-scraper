@@ -15,6 +15,7 @@ from supermarket_scraper import (
     parse_mymarket_html,
     parse_sklavenitis_html,
     search_all_supermarkets,
+    search_store,
     sklavenitis_page_count,
 )
 
@@ -551,3 +552,17 @@ def test_search_all_supermarkets_all_down(fake_http):
     fake_http({})
 
     assert search_all_supermarkets('γάλα') == {'ab': [], 'sklavenitis': [], 'mymarket': []}
+
+
+def test_search_store_reuses_one_scraper_per_max_pages(fake_http):
+    fake_http(ALL_STORES)
+    supermarket_scraper._scraper.cache_clear()
+
+    first = search_store('sklavenitis', 'γάλα', max_pages=2)
+    again = search_store('sklavenitis', 'γάλα', max_pages=2)
+    search_store('ab', 'γάλα')
+
+    assert len(first) == 1 and again == first
+    # One scraper (and its connections) for max_pages=2 and one for all pages
+    assert supermarket_scraper._scraper.cache_info()[:2] == (1, 2)
+    assert supermarket_scraper._scraper(2).max_pages == 2

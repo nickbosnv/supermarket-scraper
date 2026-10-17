@@ -12,7 +12,7 @@ import json
 import os
 import re
 
-from .import_akis import ANIMAL, FISH, MEAT, category_for, map_ingredient, map_unit, parse_qty, slugify, to_amount
+from .ingredient_text import ANIMAL, FISH, MEAT, category_for, map_ingredient, map_unit, parse_qty, slugify, to_amount
 from .planner import APPLIANCES, CUSTOM_RECIPES, detect_appliances
 from .pricing import norm, normalize_size
 
@@ -54,6 +54,8 @@ def guess_type(name):
 
 def _new_ingredient(raw):
     """An ingredient from a product the user picked: {name, query, type, product: {store, name, price, size, unit}}."""
+    if not isinstance(raw, dict) or not isinstance(raw.get("product") or {}, dict):
+        raise ValueError("Λείπει το όνομα ή το προϊόν του νέου υλικού.")
     name = str(raw.get("name") or "").strip()
     p = raw.get("product") or {}
     if not name or p.get("unit") not in UNITS:
@@ -95,12 +97,17 @@ def save(state_dir, planner, body):
     except (TypeError, ValueError):
         raise ValueError("Οι μερίδες και ο χρόνος πρέπει να είναι αριθμοί.")
     meal = ["breakfast"] if body.get("meal") == "breakfast" else ["lunch", "dinner"]
+    rows, steps = body.get("lines") or [], body.get("steps") or []
+    if not isinstance(rows, list) or not isinstance(steps, list):
+        raise ValueError("Τα υλικά και τα βήματα πρέπει να είναι λίστες.")
 
     ing_path = os.path.join(state_dir, CUSTOM_INGREDIENTS)
     own = _read(ing_path, {})
     known = {**planner.ingredients, **own}
     lines, amounts = [], {}
-    for row in body.get("lines") or []:
+    for row in rows:
+        if not isinstance(row, dict):
+            raise ValueError("Λάθος γραμμή υλικού.")
         text = str(row.get("text") or "").strip()
         iid = row.get("ingredient")
         if row.get("new"):
@@ -109,7 +116,7 @@ def save(state_dir, planner, body):
             iid = next((k for k, v in own.items() if v.get("product") == ing["product"] and v["name"] == ing["name"]),
                        None) or _unique("my_" + (slugify(ing["name"]) or "item"), known)
             own[iid] = known[iid] = ing
-        if iid and iid not in known:
+        if iid and (not isinstance(iid, str) or iid not in known):
             raise ValueError(f"Άγνωστο υλικό: {iid}")
         try:
             amount = float(row.get("amount") or 0)
@@ -125,8 +132,10 @@ def save(state_dir, planner, body):
         lines.append({"text": text, "ingredient": iid or None, "amount": round(amount, 1) if iid else None})
     if not amounts:
         raise ValueError("Η συνταγή χρειάζεται τουλάχιστον ένα υλικό με ποσότητα.")
-    steps = [s.strip() for s in body.get("steps") or [] if str(s).strip()]
+    steps = [str(s).strip() for s in steps if str(s).strip()]
     appliances = body.get("appliances")
+    if not isinstance(appliances, (list, type(None))):
+        appliances = None
     appliances = detect_appliances(" ".join([name] + steps)) if appliances is None else         [a for a in APPLIANCES if a in appliances]
 
     all_recipes = recipes(state_dir)

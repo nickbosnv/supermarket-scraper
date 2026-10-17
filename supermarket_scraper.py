@@ -24,6 +24,8 @@ REQUEST_TIMEOUT = 10
 MAX_PAGES = 50
 # Result pages requested at the same time per store (the 3 stores are searched in parallel)
 PAGE_WORKERS = 4
+# Connections kept per store: search_store shares a scraper, and the meal planner runs several searches at once
+POOL_SIZE = 10
 # The largest page size the AB API accepts
 AB_PAGE_SIZE = 50
 
@@ -50,9 +52,16 @@ UNIT_ALIASES = {
     'lt': ('L', 1),
     'λτ': ('L', 1),
     'λιτ': ('L', 1),
+    'λίτ': ('L', 1),
+    'λίτρα': ('L', 1),
+    'λίτρο': ('L', 1),
+    'λιτρα': ('L', 1),
+    'λιτρο': ('L', 1),
     'g': ('kg', 0.001),
     'gr': ('kg', 0.001),
     'γρ': ('kg', 0.001),
+    'γραμμάρια': ('kg', 0.001),
+    'γραμμαρια': ('kg', 0.001),
     'kg': ('kg', 1),
     'κιλ': ('kg', 1),
     'τεμ': ('unit', 1),
@@ -74,6 +83,7 @@ _SIZE_RE = re.compile(
     + r')(?![a-zα-ω])',
     re.IGNORECASE,
 )
+_PARENTHESES_RE = re.compile(r'\([^)]*\)')
 
 # Unit keywords in the unit price labels shown by the stores, matched without accents
 # (e.g. "10,98 €/ κιλ", "1,00 € /λίτρο", "0,07€ Τιμή μεζούρας", "0,07 € /πλύση")
@@ -310,9 +320,15 @@ def parse_unit_price_label(text: Optional[str]) -> Optional[Dict]:
     return None
 
 
+def _size_match(text: Optional[str]):
+    """Size outside parentheses first: "(9-14kg)" in nappies is the baby's weight, not the size."""
+    text = text or ''
+    return _SIZE_RE.search(_PARENTHESES_RE.sub(' ', text)) or _SIZE_RE.search(text)
+
+
 def extract_size(text: str) -> str:
     """Return the size part of a product name (e.g. "400gr", "6x330ml"), or '' if there is none."""
-    match = _SIZE_RE.search(text or '')
+    match = _size_match(text)
     return match.group(0) if match else ''
 
 
@@ -322,7 +338,7 @@ def parse_quantity(text: Optional[str]) -> Optional[Tuple[float, str]]:
 
     E.g. "6x330ml" -> (1.98, 'L'), "1,5 λιτ" -> (1.5, 'L'). Returns None if there is no size.
     """
-    match = _SIZE_RE.search(text or '')
+    match = _size_match(text)
     if not match:
         return None
 
@@ -590,7 +606,7 @@ class SupermarketScraper:
         # The stores sometimes drop connections when many pages are requested at once.
         # All requests are searches, so retrying is safe for POST (AB GraphQL) too.
         retry = Retry(total=2, backoff_factor=0.5, status_forcelist=(429, 500, 502, 503, 504), allowed_methods=None)
-        self.session.mount('https://', HTTPAdapter(max_retries=retry, pool_maxsize=PAGE_WORKERS))
+        self.session.mount('https://', HTTPAdapter(max_retries=retry, pool_maxsize=POOL_SIZE))
 
     def _request(self, supermarket: str, method: str, url: str, **kwargs) -> Optional[requests.Response]:
         try:
@@ -682,6 +698,12 @@ def _store_searches(scraper: SupermarketScraper) -> Dict[str, Callable[[str], Li
     }
 
 
+@lru_cache(maxsize=None)
+def _scraper(max_pages: Optional[int]) -> SupermarketScraper:
+    """One scraper per max_pages, so that repeated searches (e.g. ~70 for a meal plan) reuse the connections."""
+    return SupermarketScraper(max_pages)
+
+
 def search_store(store: str, product_name: str, max_pages: Optional[int] = None) -> List[Dict]:
     """
     Search one supermarket ('ab', 'sklavenitis' or 'mymarket') for a product.
@@ -689,7 +711,7 @@ def search_store(store: str, product_name: str, max_pages: Optional[int] = None)
     Same as search_all_supermarkets for a single store: the relevant products with unit prices,
     best value first. max_pages limits the result pages read (the stores list the closest matches first).
     """
-    search = _store_searches(SupermarketScraper(max_pages))[store]
+    search = _store_searches(_scraper(max_pages))[store]
     products = filter_relevant(product_name, {store: search(product_name)})[store]
     for product in products:
         product['unit_price_calc'] = unit_price(product)

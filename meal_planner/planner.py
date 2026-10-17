@@ -109,14 +109,21 @@ class Planner:
     def clean_settings(self, raw):
         s = dict(DEFAULTS)
         s.update({k: v for k, v in (raw or {}).items() if k in DEFAULTS})
-        s["persons"] = max(1, min(12, int(s["persons"])))
-        s["budget"] = max(0.0, float(s["budget"]))
+        try:
+            s["persons"] = max(1, min(12, int(s["persons"])))
+            s["budget"] = max(0.0, float(s["budget"]))
+        except (TypeError, ValueError):
+            raise ValueError("Τα άτομα και το budget πρέπει να είναι αριθμοί.")
+        # A choice or a list of the wrong type gets the default
+        for k in ("store", "diet", "source", "meals", "exclude", "appliances"):
+            if not isinstance(s[k], type(DEFAULTS[k])):
+                s[k] = DEFAULTS[k]
         if s["store"] not in STORES and s["store"] != "cheapest":
             s["store"] = DEFAULTS["store"]
         if s["diet"] not in DIETS:
             s["diet"] = "all"
         s["meals"] = [m for m in MEALS if m in s["meals"]] or ["dinner"]
-        s["exclude"] = [i for i in s["exclude"] if i in self.ingredients]
+        s["exclude"] = [i for i in s["exclude"] if isinstance(i, str) and i in self.ingredients]
         s["appliances"] = [a for a in APPLIANCES if a in s["appliances"]]
         s["leftovers"] = bool(s["leftovers"])
         s["include_pantry"] = bool(s["include_pantry"])

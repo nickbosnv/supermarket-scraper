@@ -1,13 +1,17 @@
 import json
+import subprocess
+import sys
+import threading
+from pathlib import Path
 
 import pytest
 
 import app as app_module
 import meal_planner
 from app import app, meal_planner_search
-from meal_planner import DATA, Planner, custom
+from meal_planner import DATA, Planner, custom, ingredient_text
 from meal_planner.planner import detect_appliances
-from meal_planner.pricing import PriceProvider
+from meal_planner.pricing import EMPTY_TTL, PriceProvider
 
 
 def fake_store_search(store, query):
@@ -158,6 +162,95 @@ def test_broken_search_does_not_fail_the_prices(provider):
     assert provider.options('ab', 'rice', {'query': 'ρύζι', 'unit': 'g'}) == []
 
 
+def counting(results):
+    """A search that returns `results` and counts its calls in .calls."""
+    def search(store, query):
+        search.calls += 1
+        return results
+    search.calls = 0
+    return search
+
+
+RICE = {'query': 'ρύζι', 'unit': 'g'}
+RICE_1KG = [{'name': 'Ρύζι 1kg', 'price': 1.5, 'size': 1, 'size_unit': 'kg'}]
+
+
+def test_empty_search_keeps_the_known_prices(provider):
+    provider.register(counting(RICE_1KG))
+    known = provider.options('ab', 'rice', RICE)
+    provider.cache['ab:rice']['t'] -= 2 * provider.ttl
+    down = counting([])
+    provider.register(down)
+
+    assert provider.options('ab', 'rice', RICE) == known
+    assert provider.options('ab', 'rice', RICE, force=True) == known
+    assert down.calls == 2
+    # Not searched again on every lookup until EMPTY_TTL
+    provider.options('ab', 'rice', RICE)
+    assert down.calls == 2
+    provider.cache['ab:rice']['t'] -= EMPTY_TTL + 1
+    back = counting(RICE_1KG)
+    provider.register(back)
+    assert provider.options('ab', 'rice', RICE) == known
+    assert back.calls == 1 and provider.cache['ab:rice']['found']
+
+
+def test_empty_search_is_searched_again_after_empty_ttl(provider):
+    down = counting([])
+    provider.register(down)
+
+    assert provider.options('ab', 'rice', RICE) == []
+    provider.cache['ab:rice']['t'] -= EMPTY_TTL - 60
+    provider.options('ab', 'rice', RICE)
+    assert down.calls == 1
+    provider.cache['ab:rice']['t'] -= 120
+    provider.options('ab', 'rice', RICE)
+    assert down.calls == 2
+
+
+def test_found_prices_are_kept_for_the_ttl(provider):
+    search = counting(RICE_1KG)
+    provider.register(search)
+
+    provider.options('ab', 'rice', RICE)
+    provider.cache['ab:rice']['t'] -= EMPTY_TTL + 1
+    provider.options('ab', 'rice', RICE)
+
+    assert search.calls == 1
+
+
+def test_saves_at_the_same_time(provider):
+    provider.options('ab', 'rice', RICE)
+    errors = []
+
+    def save():
+        for _ in range(20):
+            try:
+                provider.save()
+            except OSError as e:
+                errors.append(e)
+
+    threads = [threading.Thread(target=save) for _ in range(8)]
+    for t in threads:
+        t.start()
+    for t in threads:
+        t.join()
+
+    assert errors == []
+    assert set(PriceProvider(provider.cache_path).cache) == {'ab:rice'}
+
+
+def test_clear_empties_the_saved_cache(provider):
+    provider.options('ab', 'rice', RICE)
+
+    done = threading.Thread(target=provider.clear)
+    done.start()
+    done.join(5)
+
+    assert not done.is_alive()
+    assert PriceProvider(provider.cache_path).cache == {}
+
+
 # --- Plans ---
 
 def test_builtin_recipes_use_known_ingredients(planner):
@@ -269,6 +362,20 @@ def test_settings_are_cleaned(planner):
     assert settings['exclude'] == []
 
 
+def test_settings_of_the_wrong_type_get_the_defaults(planner):
+    settings = planner.clean_settings({'persons': '3', 'store': ['ab'], 'diet': {}, 'source': 1, 'meals': 'dinner',
+                                       'exclude': [['egg'], 'egg'], 'appliances': 'oven'})
+
+    assert settings['persons'] == 3
+    assert (settings['store'], settings['diet'], settings['source']) == ('sklavenitis', 'all', 'all')
+    assert settings['meals'] == ['breakfast', 'lunch', 'dinner']
+    assert settings['exclude'] == ['egg']
+    assert settings['appliances'] == planner.clean_settings({})['appliances']
+    for wrong in ({'persons': None}, {'budget': 'πολλά'}, {'persons': [2]}):
+        with pytest.raises(ValueError, match='Τα άτομα και το budget πρέπει να είναι αριθμοί.'):
+            planner.clean_settings(wrong)
+
+
 # --- Routes ---
 
 @pytest.fixture
@@ -314,6 +421,15 @@ def test_plan_routes(client):
     assert recipe['persons'] == 3 and recipe['steps']
 
 
+def test_refresh_prices_keeps_the_prices_of_a_store_that_does_not_answer(client, provider):
+    plan = client.post('/meals/api/plan', json={'meals': ['dinner'], 'store': 'ab'}).get_json()
+    provider.register(lambda store, query: [])
+
+    refreshed = client.post('/meals/api/refresh-prices', json={}).get_json()
+
+    assert (refreshed['estimated'], refreshed['total']) == (plan['estimated'], plan['total'])
+
+
 def test_alternatives_and_choose_routes(client):
     client.post('/meals/api/plan', json={'meals': ['dinner'], 'leftovers': False})
 
@@ -351,6 +467,94 @@ def test_swap_without_plan(client):
 
 def test_unknown_recipe(client):
     assert client.get('/meals/api/recipe/nope').status_code == 404
+
+
+POST_ROUTES = ['/plan', '/swap', '/choose', '/refresh-prices', '/custom', '/custom/my_x/delete', '/custom/parse',
+               '/custom/appliances']
+
+
+@pytest.mark.parametrize('path', POST_ROUTES)
+def test_post_routes_take_only_json(client, path):
+    """A form of another site can post text/plain, but not application/json without asking first (CSRF)."""
+    response = client.post(f'/meals/api{path}', data='{"day": 0, "meal": "dinner"}', content_type='text/plain')
+
+    assert response.status_code == 400
+    assert response.get_json()['error'] == 'Λάθος αίτημα.'
+
+
+@pytest.mark.parametrize('path', POST_ROUTES)
+def test_post_routes_take_only_a_json_object(client, path):
+    assert client.post(f'/meals/api{path}', json=[1, 2]).status_code == 400
+
+
+@pytest.mark.parametrize('body', [{'day': None, 'meal': 'dinner'}, {'day': [], 'meal': 'dinner'}, {'meal': 'dinner'}])
+def test_swap_and_choose_check_the_meal(client, body):
+    client.post('/meals/api/plan', json={'meals': ['dinner']})
+
+    assert client.post('/meals/api/swap', json=body).status_code == 400
+    assert client.post('/meals/api/choose', json={**body, 'recipe_id': 'nope'}).status_code == 400
+
+
+def test_plan_with_wrong_settings(client):
+    response = client.post('/meals/api/plan', json={'persons': None})
+
+    assert response.status_code == 400
+    assert response.get_json()['error'] == 'Τα άτομα και το budget πρέπει να είναι αριθμοί.'
+
+
+# --- Ingredient lines ---
+
+@pytest.mark.parametrize('text, qty', [
+    ('2', 2), ('1,5', 1.5), ('1/2', 0.5), ('1 ½', 1.5), ('2-3', 2), ('', None), ('λίγο', None),
+])
+def test_parse_qty(text, qty):
+    assert ingredient_text.parse_qty(text) == qty
+
+
+@pytest.mark.parametrize('text, unit', [
+    ('γρ.', ('g', 1)), ('κιλό', ('g', 1000)), ('λίτρο', ('ml', 1000)), ('κ.σ.', ('spoon', 15)),
+    ('σκελίδες', ('pcs', 1)), ('', ('pcs', 1)), ('κλωναράκια', ('skip', 0)), ('μπόλικο', None),
+])
+def test_map_unit(text, unit):
+    assert ingredient_text.map_unit(text) == unit
+
+
+@pytest.mark.parametrize('title, mapped', [
+    ('φιλέτο κοτόπουλο', (True, 'chicken_breast')), ('κρεμμύδια ξερά', (True, 'onion')),
+    ('γλυκοπατάτες', (True, 'sweet_potato')), ('αλάτι', (True, None)), ('κινόα', (False, None)),
+])
+def test_map_ingredient(title, mapped):
+    assert ingredient_text.map_ingredient(title) == mapped
+
+
+def test_to_amount_converts_to_the_unit_of_the_ingredient():
+    assert ingredient_text.to_amount(2, ('pcs', 1), 'onion', {'unit': 'g'}) == 300
+    assert ingredient_text.to_amount(300, ('g', 1), 'egg', {'unit': 'pcs'}) == 3
+    assert ingredient_text.to_amount(2, ('spoon', 15), 'olive_oil', {'unit': 'ml'}) == 30
+    assert ingredient_text.to_amount(1, ('skip', 0), 'parsley', {'unit': 'pcs'}) is None
+
+
+def test_category_and_diet_words():
+    assert ingredient_text.slugify('Κοτόπουλο με philadelphia') == 'kotopoylo_me_philadelphia'
+    assert ingredient_text.category_for(['lunch', 'dinner'], {'lentils': 250}, 'φακες') == 'legumes'
+    assert ingredient_text.category_for(['breakfast'], {'egg': 2}, 'αυγα') == 'breakfast_eggs'
+    # Words match at their start: «κρεμμύδια» has no «μυδ(ια)» in it
+    assert not ingredient_text.FISH.search('κρεμμυδια')
+    assert ingredient_text.MEAT.search('κιμασ μοσχαρισιοσ')
+
+
+def test_app_starts_without_the_local_importers():
+    """meal_planner/import_*.py are not in git, so the app must not need them."""
+    code = (
+        'import sys\n'
+        'class Block:\n'
+        '    def find_spec(self, name, path=None, target=None):\n'
+        "        if name.startswith('meal_planner.import_'):\n"
+        '            raise ImportError(name)\n'
+        'sys.meta_path.insert(0, Block())\n'
+        'import app\n'
+    )
+    subprocess.run([sys.executable, '-c', code], cwd=Path(__file__).parent.parent, check=True)
 
 
 # --- Own recipes ---
@@ -426,6 +630,13 @@ def test_save_own_recipe_with_a_new_ingredient(tmp_path, provider):
     ({'lines': [{'text': 'κοτόπουλο', 'ingredient': 'chicken_breast'}]}, 'Βάλε ποσότητα για «κοτόπουλο».'),
     ({'lines': [{'text': 'x', 'ingredient': 'nope', 'amount': 1}]}, 'Άγνωστο υλικό: nope'),
     ({'id': 'my_nope'}, 'Η συνταγή δεν βρέθηκε.'),
+    ({'lines': 'κοτόπουλο'}, 'Τα υλικά και τα βήματα πρέπει να είναι λίστες.'),
+    ({'steps': 'Σοτάρουμε.'}, 'Τα υλικά και τα βήματα πρέπει να είναι λίστες.'),
+    ({'lines': ['600 γρ. κοτόπουλο']}, 'Λάθος γραμμή υλικού.'),
+    ({'lines': [{'text': 'x', 'ingredient': ['egg'], 'amount': 1}]}, 'Άγνωστο υλικό'),
+    ({'lines': [{'text': 'x', 'amount': 1, 'new': 'philadelphia'}]}, 'Λείπει το όνομα ή το προϊόν του νέου υλικού.'),
+    ({'lines': [{'text': 'x', 'amount': 1, 'new': {'name': 'x', 'product': [1]}}]},
+     'Λείπει το όνομα ή το προϊόν του νέου υλικού.'),
 ])
 def test_save_own_recipe_checks_the_form(tmp_path, provider, change, error):
     planner = Planner(DATA, str(tmp_path), provider)
@@ -458,13 +669,13 @@ def test_own_recipe_routes(own_client):
     plan = own_client.post('/meals/api/choose', json={'day': 1, 'meal': 'dinner', 'recipe_id': recipe['id']}).get_json()
     item = next(i for a in plan['shopping'] for i in a['items'] if i['id'] == 'my_philadelphia')
     assert item['leftover'] > 0
-    assert own_client.post(f'/meals/api/custom/{recipe["id"]}/delete').status_code == 400
+    assert own_client.post(f'/meals/api/custom/{recipe["id"]}/delete', json={}).status_code == 400
     # Nor become a breakfast while it is a dinner
     response = own_client.post('/meals/api/custom', json={**NEW_RECIPE, 'id': recipe['id'], 'meal': 'breakfast'})
     assert response.status_code == 400
 
     own_client.post('/meals/api/plan', json={'meals': ['breakfast']})
-    assert own_client.post(f'/meals/api/custom/{recipe["id"]}/delete').get_json() == {'ok': True}
+    assert own_client.post(f'/meals/api/custom/{recipe["id"]}/delete', json={}).get_json() == {'ok': True}
     assert own_client.get('/meals/api/custom').get_json() == []
     assert recipe['id'] not in meal_planner.planner.recipes
 
@@ -513,6 +724,17 @@ def test_plan_has_only_recipes_for_the_appliances_at_home(planner):
     assert oven
     assert set(oven) <= set(planner.eligible(planner.clean_settings({}), 'dinner'))
     assert planner.recipe_view(oven[0], 2)['appliances'] == ['Φούρνος']
+
+
+def test_own_recipe_steps_and_appliances_of_other_types(tmp_path, provider):
+    planner = Planner(DATA, str(tmp_path), provider)
+
+    recipe = custom.save(str(tmp_path), planner, {**NEW_RECIPE, 'steps': [12, ' Ψήνουμε στον φούρνο. '],
+                                                  'appliances': 'blender'})
+
+    assert recipe['steps'] == ['12', 'Ψήνουμε στον φούρνο.']
+    # Not a list: found in the steps
+    assert recipe['appliances'] == ['oven']
 
 
 def test_own_recipe_appliances(tmp_path, provider):

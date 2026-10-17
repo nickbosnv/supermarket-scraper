@@ -132,7 +132,7 @@ cheapest store per product. The page is `meal_planner/templates/meal_planner.htm
   Products are searched by title, not by size: when the package is bigger than the recipe needs, the shopping list
   shows ❗ with what is left over (`leftover`)
 - **Own recipes** (`custom.py`, tab "Συνταγές μου"): written in a form or pasted as text (`parse()` finds name,
-  portions, time, ingredient lines and steps, with the ingredient mapping of `import_akis.py`). An ingredient not in
+  portions, time, ingredient lines and steps, with the ingredient mapping of `ingredient_text.py`). An ingredient not in
   the list is searched in the stores by title (sizes and "κουτί", "βάζο" etc. removed) and the user picks the product:
   it becomes a new ingredient in `ingredients_custom.json`, reused in later recipes, and in the store it was picked
   from the plan buys that product. Lines without an ingredient (e.g. "αλάτι") are shown but not costed. Saved in
