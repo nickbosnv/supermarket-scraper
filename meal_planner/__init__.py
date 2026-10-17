@@ -15,7 +15,7 @@ from concurrent.futures import ThreadPoolExecutor
 from flask import Blueprint, jsonify, render_template, request
 
 from . import custom
-from .planner import DAYS, DIETS, MEALS, SOURCES, Planner
+from .planner import APPLIANCES, DAYS, DIETS, MEALS, SOURCES, Planner, detect_appliances
 from .pricing import STORES, PriceProvider
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -67,7 +67,7 @@ def meta():
     own = sum(1 for r in planner.recipes.values() if r["custom"])
     counts = {"builtin": len(planner.recipes) - imported - own, "imported": imported, "custom": own}
     return jsonify({"stores": STORES, "diets": DIETS, "meals": MEALS, "days": DAYS, "sources": SOURCES,
-                    "source_counts": counts, "types": custom.TYPES,
+                    "source_counts": counts, "types": custom.TYPES, "appliances": APPLIANCES,
                     "ingredients": ings, "recipe_count": len(planner.recipes),
                     "connected": price_provider.search_fn is not None})
 
@@ -212,6 +212,13 @@ def custom_parse():
     """A draft recipe from pasted text, to check and correct in the form."""
     body = request.get_json(force=True) or {}
     return jsonify(custom.parse(str(body.get("text") or "")[:20000], planner.ingredients))
+
+
+@meal_bp.post("/api/custom/appliances")
+def custom_appliances():
+    """The appliances found in the steps of a recipe ({text}), to tick them in the form."""
+    body = request.get_json(force=True) or {}
+    return jsonify(detect_appliances(str(body.get("text") or "")[:20000]))
 
 
 @meal_bp.get("/api/products")

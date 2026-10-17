@@ -6,6 +6,7 @@ import app as app_module
 import meal_planner
 from app import app, meal_planner_search
 from meal_planner import DATA, Planner, custom
+from meal_planner.planner import detect_appliances
 from meal_planner.pricing import PriceProvider
 
 
@@ -481,3 +482,51 @@ def test_products_route(own_client):
     assert {p['store'] for p in found['products']} == {'ab'}
     assert found['type'] == 'dairy'
     assert own_client.get('/meals/api/products?q=').status_code == 400
+
+
+# --- Kitchen appliances ---
+
+@pytest.mark.parametrize('text, appliances', [
+    ('Ψήνουμε στον προθερμασμένο φούρνο στους 180°C για 40 λεπτά.', ['oven']),
+    ('Ρίχνουμε στο ταψί και ψήνουμε 1 ώρα.', ['oven']),
+    ('Βάζουμε στον φούρνο μικροκυμάτων για 1 λεπτό στα 800 watt.', ['microwave']),
+    ('Κοντοσούβλι στο air fryer. Ψήνουμε στους 180 βαθμούς για 20 λεπτά.', ['air_fryer']),
+    ('Βάζουμε όλα τα υλικά σε ένα μπλέντερ και χτυπάμε.', ['blender']),
+    ('Κλείνουμε τη χύτρα ταχύτητας και μαγειρεύουμε 20 λεπτά.', ['pressure_cooker']),
+    ('Ψήσε στην τοστιέρα 3–4 λεπτά.', ['toaster']),
+    # A grill or a pan: either will do
+    ('Ψήσε το κοτόπουλο σε σχάρα ή τηγάνι.', []),
+    ('Σοτάρουμε το κρεμμύδι και σερβίρουμε.', []),
+])
+def test_detect_appliances(text, appliances):
+    assert detect_appliances(text) == appliances
+
+
+def test_plan_has_only_recipes_for_the_appliances_at_home(planner):
+    settings = planner.clean_settings({'appliances': []})
+
+    assert settings['appliances'] == []
+    for meal in ('breakfast', 'dinner'):
+        for rid in planner.eligible(settings, meal):
+            assert planner.recipes[rid]['appliances'] == [], rid
+    oven = [rid for rid, r in planner.recipes.items() if 'oven' in r['appliances']]
+    assert oven
+    assert set(oven) <= set(planner.eligible(planner.clean_settings({}), 'dinner'))
+    assert planner.recipe_view(oven[0], 2)['appliances'] == ['Φούρνος']
+
+
+def test_own_recipe_appliances(tmp_path, provider):
+    planner = Planner(DATA, str(tmp_path), provider)
+
+    found = custom.save(str(tmp_path), planner, {**NEW_RECIPE, 'steps': ['Ψήνουμε στο air fryer 15 λεπτά.']})
+    chosen = custom.save(str(tmp_path), planner, {**NEW_RECIPE, 'name': 'Άλλη', 'appliances': ['blender', 'nope']})
+
+    assert found['appliances'] == ['air_fryer']
+    assert chosen['appliances'] == ['blender']
+    assert custom.parse('Smoothie\nΥλικά\n1 μπανάνα\nΕκτέλεση\nΧτυπάμε στο μπλέντερ.', planner.ingredients)['appliances'] \
+        == ['blender']
+
+
+def test_appliances_route(own_client):
+    assert own_client.get('/meals/api/meta').get_json()['appliances']['oven'] == 'Φούρνος'
+    assert own_client.post('/meals/api/custom/appliances', json={'text': 'Στο φούρνο.'}).get_json() == ['oven']

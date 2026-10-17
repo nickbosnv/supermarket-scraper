@@ -67,7 +67,7 @@
 .field input,.field select{width:100%;min-width:0;padding:12px;border:2px solid #e0e0e0;border-radius:8px;background:white;font:inherit;font-weight:400;color:#333;transition:border-color 0.3s}
 .field input:focus,.field select:focus{outline:none;border-color:#667eea}
 .chips{display:flex;flex-wrap:wrap;gap:8px}
-.chips label{display:flex;align-items:center;gap:6px;border:1px solid #d0d4f0;border-radius:20px;padding:6px 14px;font-size:0.9em;color:#333;cursor:pointer}
+.chips label{display:flex;align-items:center;gap:6px;white-space:nowrap;border:1px solid #d0d4f0;border-radius:20px;padding:6px 14px;font-size:0.9em;color:#333;cursor:pointer}
 .chips label:has(input:checked){background:#f5f7ff;border-color:#667eea}
 .chips input{accent-color:#667eea}
 .choices .chips{max-height:240px;overflow:auto}
@@ -209,6 +209,7 @@ dialog::backdrop{background:rgba(40,30,80,0.55)}
         <label><input type="checkbox" name="leftovers" checked> Το βραδινό γίνεται μεσημεριανό της επόμενης</label>
         <label><input type="checkbox" name="include_pantry"> Μέτρα και τα βασικά (λάδι, μπαχαρικά)</label>
       </div>
+      <div class="field"><span>Συσκευές που έχω <span class="hint">— οι συνταγές που θέλουν κάποια άλλη δεν μπαίνουν στο πλάνο</span></span><div class="chips" id="apps"></div></div>
       <details class="choices"><summary>Υλικά που δεν θέλω / αλλεργίες</summary><div class="chips" id="excl"></div></details>
       <div class="actions">
         <button class="btn-search" id="go" type="submit">🍽️ Φτιάξε πλάνο</button>
@@ -253,6 +254,7 @@ function buildForm() {
     .map(k => `<option value="${k}">${META.sources[k]}${k === 'all' ? '' : ` (${sc[k] || 0})`}</option>`).join('');
   $('#srcwrap').hidden = !sc.imported && !sc.custom;
   $('#meals').innerHTML = MEAL_KEYS.map(k => [k, META.meals[k]]).map(([k, v]) => `<label><input type="checkbox" name="meals" value="${k}" checked> ${v}</label>`).join('');
+  $('#apps').innerHTML = Object.entries(META.appliances).map(([k, v]) => `<label><input type="checkbox" name="appliances" value="${k}" checked> ${esc(v)}</label>`).join('');
   $('#excl').innerHTML = META.ingredients.filter(i => !i.pantry).map(i => `<label><input type="checkbox" name="exclude" value="${i.id}"> ${esc(i.name)}</label>`).join('');
 }
 
@@ -263,6 +265,8 @@ function fillForm(s) {
   f.leftovers.checked = s.leftovers; f.include_pantry.checked = s.include_pantry;
   f.querySelectorAll('[name=meals]').forEach(c => c.checked = s.meals.includes(c.value));
   f.querySelectorAll('[name=exclude]').forEach(c => c.checked = s.exclude.includes(c.value));
+  // Plans made before the appliances setting assume every appliance
+  f.querySelectorAll('[name=appliances]').forEach(c => c.checked = !s.appliances || s.appliances.includes(c.value));
 }
 
 function readForm() {
@@ -272,6 +276,7 @@ function readForm() {
     leftovers: f.leftovers.checked, include_pantry: f.include_pantry.checked,
     meals: [...f.querySelectorAll('[name=meals]:checked')].map(c => c.value),
     exclude: [...f.querySelectorAll('[name=exclude]:checked')].map(c => c.value),
+    appliances: [...f.querySelectorAll('[name=appliances]:checked')].map(c => c.value),
   };
 }
 
@@ -352,7 +357,7 @@ async function openRecipe(id, portions, back) {
        <details><summary>Ποσότητες για ${r.persons} μερίδες (όπως κοστολογήθηκαν)</summary>${scaled}</details>`
     : `<h4>Υλικά</h4>${scaled}`;
   openDialog(`${back ? '<button class="back" id="back">← Πίσω στη λίστα</button>' : ''}
-    <h2>${esc(r.name)}</h2><div class="muted">${r.time}′ · ${r.persons} μερίδες</div>
+    <h2>${esc(r.name)}</h2><div class="muted">${r.time}′ · ${r.persons} μερίδες${r.appliances.length ? ` · Χρειάζεται: ${esc(r.appliances.join(', '))}` : ''}</div>
     ${ingHtml}
     <h4>Εκτέλεση</h4><ol>${r.steps.map(s => `<li>${esc(s)}</li>`).join('')}</ol>
     ${r.source ? `<p class="muted" style="font-size:0.9em;margin-top:12px">Πηγή: <a href="${esc(r.source)}" target="_blank" rel="noopener">${esc(r.source_name || r.source)}</a></p>` : ''}
@@ -485,9 +490,9 @@ function renderMy() {
 function openEditor(r, paste) {
   ED = r ? {
     id: r.id, name: r.name, meal: r.meal.includes('breakfast') ? 'breakfast' : 'main', servings: r.servings, time: r.time,
-    steps: r.steps.join('\n'),
+    steps: r.steps.join('\n'), appliances: r.appliances ?? null,
     rows: r.lines.map(l => ({name: l.ingredient ? ingById(l.ingredient)?.name || l.text : l.text, iid: l.ingredient, amount: l.amount, text: l.text})),
-  } : {id: null, name: '', meal: 'main', servings: 4, time: 30, steps: '', rows: [{name: ''}, {name: ''}, {name: ''}]};
+  } : {id: null, name: '', meal: 'main', servings: 4, time: 30, steps: '', rows: [{name: ''}, {name: ''}, {name: ''}], appliances: null};
   renderEditor(paste);
   scrollTo(0, 0);
 }
@@ -513,6 +518,8 @@ function renderEditor(paste) {
       <button type="button" class="btn-check-favourites" id="ed-add">➕ Υλικό</button>
     </div>
     <label class="field"><span>Εκτέλεση <span class="hint">— ένα βήμα σε κάθε γραμμή</span></span><textarea id="ed-steps" rows="6">${esc(ED.steps)}</textarea></label>
+    <div class="field"><span>Συσκευές που χρειάζεται <span class="hint">— τις βρίσκω από την εκτέλεση, διόρθωσέ τες αν χρειάζεται</span></span>
+      <div class="chips" id="ed-apps">${Object.entries(META.appliances).map(([k, v]) => `<label><input type="checkbox" value="${k}"> ${esc(v)}</label>`).join('')}</div></div>
     <div class="actions">
       <button type="button" class="btn-search" id="ed-save">💾 Αποθήκευση</button>
       <button type="button" class="btn-check-favourites" id="ed-cancel">Άκυρο</button>
@@ -521,6 +528,16 @@ function renderEditor(paste) {
   <datalist id="inglist">${META.ingredients.map(i => `<option value="${esc(i.name)}">`).join('')}</datalist>`;
   $('#ed-meal').value = ED.meal;
   renderRows();
+  // ED.appliances stays null until the user ticks one: until then they follow the steps
+  const tick = list => $('#ed-apps').querySelectorAll('input').forEach(c => c.checked = list.includes(c.value));
+  const detect = async () => {
+    if (ED.appliances) return;
+    try { tick(await api('/custom/appliances', {text: $('#ed-name').value + '\n' + $('#ed-steps').value})); } catch (e) {}
+  };
+  if (ED.appliances) tick(ED.appliances); else detect();
+  $('#ed-apps').onchange = () => ED.appliances = [...$('#ed-apps').querySelectorAll('input:checked')].map(c => c.value);
+  let timer;
+  $('#ed-steps').oninput = $('#ed-name').oninput = () => { clearTimeout(timer); timer = setTimeout(detect, 500); };
   $('#ed-add').onclick = () => { ED.rows.push({name: ''}); renderRows(); $('#ed-rows').lastElementChild.querySelector('.ing-name').focus(); };
   $('#ed-cancel').onclick = () => { ED = null; renderMy(); };
   $('#ed-save').onclick = e => saveEditor(e.currentTarget);
@@ -532,7 +549,7 @@ function renderEditor(paste) {
       const d = await api('/custom/parse', {text});
       Object.assign(ED, {
         name: d.name || $('#ed-name').value, meal: $('#ed-meal').value, servings: d.servings || +$('#ed-serv').value,
-        time: d.time || +$('#ed-time').value, steps: d.steps.join('\n') || $('#ed-steps').value,
+        time: d.time || +$('#ed-time').value, steps: d.steps.join('\n') || $('#ed-steps').value, appliances: null,
         rows: d.lines.map(l => ({name: l.ingredient ? ingById(l.ingredient)?.name : l.title, iid: l.ingredient, amount: l.amount,
                                  text: l.text, hint: l.hint, free: l.free})),
       });
@@ -641,6 +658,7 @@ async function saveEditor(btn) {
   const body = {
     id: ED.id, name: $('#ed-name').value, meal: $('#ed-meal').value, servings: +$('#ed-serv').value, time: +$('#ed-time').value,
     steps: $('#ed-steps').value.split('\n'),
+    appliances: [...$('#ed-apps').querySelectorAll('input:checked')].map(c => c.value),
     lines: rows.map(r => ({text: r.text || rowText(r), ingredient: r.iid || null, amount: r.amount || null,
                            new: r.newIng ? {name: r.name.trim(), ...r.newIng} : null})),
   };

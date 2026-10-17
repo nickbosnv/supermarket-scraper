@@ -13,7 +13,7 @@ import os
 import re
 
 from .import_akis import ANIMAL, FISH, MEAT, category_for, map_ingredient, map_unit, parse_qty, slugify, to_amount
-from .planner import CUSTOM_RECIPES
+from .planner import APPLIANCES, CUSTOM_RECIPES, detect_appliances
 from .pricing import norm, normalize_size
 
 CUSTOM_INGREDIENTS = "ingredients_custom.json"
@@ -83,7 +83,7 @@ def _unique(base, taken):
 def save(state_dir, planner, body):
     """
     Create or update (body["id"]) a recipe:
-    {name, meal: "breakfast"|"main", servings, time, steps: [str],
+    {name, meal: "breakfast"|"main", servings, time, steps: [str], appliances: [id] (null: found in the steps),
      lines: [{text, ingredient: id|null, amount, new: {name, query, type, product} (an ingredient to add)}]}
     """
     name = str(body.get("name") or "").strip()
@@ -126,6 +126,8 @@ def save(state_dir, planner, body):
     if not amounts:
         raise ValueError("Η συνταγή χρειάζεται τουλάχιστον ένα υλικό με ποσότητα.")
     steps = [s.strip() for s in body.get("steps") or [] if str(s).strip()]
+    appliances = body.get("appliances")
+    appliances = detect_appliances(" ".join([name] + steps)) if appliances is None else         [a for a in APPLIANCES if a in appliances]
 
     all_recipes = recipes(state_dir)
     rid = body.get("id")
@@ -137,7 +139,7 @@ def save(state_dir, planner, body):
         "id": rid, "name": name, "meal": meal,
         "category": category_for(meal, amounts, norm(" ".join([name] + [l["text"] for l in lines]))),
         "servings": servings, "time": time, "ingredients": {k: round(v, 1) for k, v in amounts.items()},
-        "display": [l["text"] for l in lines], "lines": lines, "steps": steps,
+        "display": [l["text"] for l in lines], "lines": lines, "steps": steps, "appliances": appliances,
     }
     if body.get("id"):
         all_recipes = [recipe if r["id"] == rid else r for r in all_recipes]
@@ -230,10 +232,10 @@ def parse_line(line, ingredients):
 
 
 def parse(text, ingredients):
-    """A draft recipe from pasted text: {name, servings, time, lines, steps}."""
+    """A draft recipe from pasted text: {name, servings, time, lines, steps, appliances}."""
     raw = [l.strip() for l in (text or "").replace("\r", "").split("\n")]
     raw = [l for l in raw if l]
-    draft = {"name": "", "servings": None, "time": None, "lines": [], "steps": []}
+    draft = {"name": "", "servings": None, "time": None, "lines": [], "steps": [], "appliances": detect_appliances(text)}
     mode = None
     for i, line in enumerate(raw):
         n = norm(line).strip(" :")

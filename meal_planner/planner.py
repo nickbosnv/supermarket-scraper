@@ -5,10 +5,11 @@ import logging
 import math
 import os
 import random
+import re
 from collections import Counter, defaultdict
 from datetime import datetime
 
-from .pricing import STORES
+from .pricing import STORES, norm
 
 DAYS = ["Δευτέρα", "Τρίτη", "Τετάρτη", "Πέμπτη", "Παρασκευή", "Σάββατο", "Κυριακή"]
 MEALS = {"breakfast": "Πρωινό", "lunch": "Μεσημεριανό", "dinner": "Βραδινό"}
@@ -28,10 +29,45 @@ GROUPS = {
     "ladera": "veg", "veg_fried": "veg", "pie": "veg", "salad": "veg", "eggs": "eggs",
 }
 
+# Kitchen appliances a recipe may need, found in its name and steps (without accents).
+# The hob is taken for granted. "σε σχάρα ή τηγάνι" is a choice, so grills are only the named appliances.
+APPLIANCES = {
+    "oven": "Φούρνος", "blender": "Μπλέντερ", "mixer": "Μίξερ", "processor": "Multi / κοπτικό",
+    "air_fryer": "Air fryer", "pressure_cooker": "Χύτρα ταχύτητας", "toaster": "Τοστιέρα",
+    "grill": "Γκριλιέρα / ψηστιέρα", "microwave": "Φούρνος μικροκυμάτων", "waffle": "Βαφλιέρα / κρεπιέρα",
+    "slow_cooker": "Slow cooker", "thermomix": "Thermomix",
+}
+_APPLIANCE_RX = {k: re.compile(p) for k, p in {
+    "oven": r"φουρν(?!\w*\s+μικροκυμ)|ταψ|πυρεξ",
+    "blender": r"μπλεντερ|blender",
+    "mixer": r"μιξερ|mixer|κουζινομηχαν",
+    "processor": r"multi|μουλτι|κοπτικο|food processor",
+    "air_fryer": r"air ?fryer|φριτεζα αερ",
+    "pressure_cooker": r"χυτρα ταχυτ|βαλβιδα",
+    "toaster": r"τοστιερ",
+    "grill": r"γκριλιερ|ψηστιερ|καρβουν",
+    "microwave": r"μικροκυμ",
+    "waffle": r"βαφλιερ|κρεπιερ",
+    "slow_cooker": r"slow ?cooker|αργου μαγειρ",
+    "thermomix": r"thermomix|θερμομιξ",
+}.items()}
+_DEGREES = re.compile(r"\d\s*(?:°|βαθμ)")
+
+
+def detect_appliances(text):
+    """The appliances a recipe text needs, in the order of APPLIANCES."""
+    t = norm(text)
+    found = {k for k, rx in _APPLIANCE_RX.items() if rx.search(t)}
+    # A baking temperature is the oven's, unless the recipe is for the air fryer
+    if "air_fryer" not in found and _DEGREES.search(t):
+        found.add("oven")
+    return [k for k in APPLIANCES if k in found]
+
+
 DEFAULTS = {
     "persons": 2, "budget": 60.0, "store": "sklavenitis", "diet": "all",
     "meals": ["breakfast", "lunch", "dinner"], "exclude": [], "leftovers": True,
-    "include_pantry": False, "source": "all",
+    "include_pantry": False, "source": "all", "appliances": list(APPLIANCES),
 }
 
 
@@ -64,6 +100,8 @@ class Planner:
                         continue
                     r["custom"] = os.path.basename(path) == CUSTOM_RECIPES
                     r["imported"] = path != builtin and not r["custom"]
+                    if "appliances" not in r:  # own recipes say which they need
+                        r["appliances"] = detect_appliances(" ".join([r["name"]] + r["steps"]))
                     recipes[r["id"]] = r
         self.ingredients, self.recipes = ings, recipes
 
@@ -79,6 +117,7 @@ class Planner:
             s["diet"] = "all"
         s["meals"] = [m for m in MEALS if m in s["meals"]] or ["dinner"]
         s["exclude"] = [i for i in s["exclude"] if i in self.ingredients]
+        s["appliances"] = [a for a in APPLIANCES if a in s["appliances"]]
         s["leftovers"] = bool(s["leftovers"])
         s["include_pantry"] = bool(s["include_pantry"])
         if s["source"] not in SOURCES:
@@ -97,6 +136,8 @@ class Planner:
         if s["diet"] == "vegetarian" and (types & {"meat", "fish"} or diet.get("vegetarian") is False):
             return False
         if s["diet"] == "fasting" and (types - {"plant"} or diet.get("vegan") is False):
+            return False
+        if set(r["appliances"]) - set(s["appliances"]):
             return False
         return not set(r["ingredients"]) & set(s["exclude"])
 
@@ -180,7 +221,7 @@ class Planner:
         for kind in {c["kind"] for c in skel}:
             if not pools[kind]:
                 what = "πρωινά" if kind == "breakfast" else "κυρίως γεύματα"
-                raise ValueError(f"Δεν βρέθηκαν {what} με αυτά τα φίλτρα (διατροφή/πηγή/εξαιρέσεις).")
+                raise ValueError(f"Δεν βρέθηκαν {what} με αυτά τα φίλτρα (διατροφή/πηγή/εξαιρέσεις/συσκευές).")
         self._warm(pools["breakfast"] + pools["main"], s)
 
         results = []
@@ -345,7 +386,7 @@ class Planner:
             ings.append({"name": ing["name"], "qty": _fmt(qty, ing["unit"]), "pantry": ing.get("pantry", False)})
         out = {"id": rid, "name": r["name"], "time": r["time"], "persons": persons,
                "ingredients": ings, "steps": r["steps"], "source": r.get("source"),
-               "source_name": r.get("source_name")}
+               "source_name": r.get("source_name"), "appliances": [APPLIANCES[a] for a in r["appliances"]]}
         if r.get("display"):  # imported or own recipe: show the ingredient lines as written
             out["original"] = {"servings": r["servings"], "lines": r["display"], "custom": r["custom"]}
         return out

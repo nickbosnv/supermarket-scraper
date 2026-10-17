@@ -139,6 +139,11 @@ cheapest store per product. The page is `meal_planner/templates/meal_planner.htm
   `recipes_custom.json`, they can be edited, deleted (not while in the plan), put in a meal of the plan, and chosen
   as the only source ("Μόνο δικές μου")
 - Pantry items (oil, spices, vinegar, sugar) are not costed unless the user asks
+- **Kitchen appliances**: the settings list the appliances at home (oven, blender, air fryer, pressure cooker, …,
+  `APPLIANCES` in `planner.py`), all ticked by default. A recipe that needs one that is not ticked is left out of the
+  plan and of ↻. What a recipe needs is found in its name and steps (`detect_appliances()`): a baking temperature
+  means the oven unless the recipe is for the air fryer, the microwave is not the oven, and "σε σχάρα ή τηγάνι" needs
+  nothing. Own recipes keep the appliances ticked in the form, which follow the steps until the user changes them
 - **Data**: `data/ingredients.json` and `data/recipes.json` come with the code. The price cache, the current plan
   imported and own recipes go to `MEAL_PLANNER_DATA`
 - **API**: `GET /meals/api/meta`, `GET|POST /meals/api/plan` (new plan from the settings),
@@ -147,7 +152,8 @@ cheapest store per product. The page is `meal_planner/templates/meal_planner.htm
   `GET /meals/api/recipe/<id>?portions=N`,
   `POST /meals/api/refresh-prices`, `POST /meals/api/reload-recipes`,
   `GET|POST /meals/api/custom` (own recipes, save one), `POST /meals/api/custom/<id>/delete`,
-  `POST /meals/api/custom/parse` (`{text}`, a draft recipe), `GET /meals/api/products?q=...&store=...|all`
+  `POST /meals/api/custom/parse` (`{text}`, a draft recipe), `POST /meals/api/custom/appliances` (`{text}`),
+  `GET /meals/api/products?q=...&store=...|all`
 
 **Ingredients** (`data/ingredients.json`): `query` is what is searched for in the stores (a list when the stores
 name the product differently, e.g. `["ντομάτες", "τομάτες"]`), `match` words that must be in the product name
@@ -412,7 +418,7 @@ pytest --live                  # also run tests against the real supermarket web
 - `tests/test_matching.py` - the same product in every store: brand, size, name similarity, variants, ordering
 - `tests/test_app.py` - Flask routes, input validation and favourites
 - `tests/test_meal_planner.py` - meal planner: products for the planner from the scrapers, plans within the budget,
-  choosing another recipe for a meal, own recipes (pasted text, new ingredients, routes), leftovers, the routes
+  choosing another recipe for a meal, own recipes (pasted text, new ingredients, routes), leftovers, kitchen appliances, the routes
 - `tests/test_live.py` - real requests to each supermarket; fails when a site changes its URL, API or markup.
   Also checks that all pages are read, that e.g. "φέτα" returns feta and not frozen pies, and that
   "DETTOL Απολυμαντικο Ρούχων" finds the same 2,5lt product in all 3 stores
