@@ -2,6 +2,8 @@
 
 Flask web application for comparing product prices across 3 Greek supermarket chains: AB Vasilopoulos, Sklavenitis, and My Market. Every search is done live on the store websites: the app reads all result pages, keeps only the products that match the search, finds the same product in every store, and ranks the supermarkets from cheapest to most expensive. The user can pick another of the likely products, change the product of one store, and keep products as favourites.
 
+It also has a weekly meal planner (`/meals/`): breakfast, lunch and dinner for a week within a budget, with a shopping list priced in the same stores.
+
 ## Architecture Overview
 
 ```
@@ -36,7 +38,8 @@ mkdir -p data
 docker compose up -d --build
 ```
 
-The app runs at `http://<your-rasp-ip>:5000` and restarts with the Pi. Favourites are saved in `data/favourites.json`.
+The app runs at `http://<your-rasp-ip>:5000` and restarts with the Pi. Favourites are saved in `data/favourites.json`,
+the meal planner's prices, current plan and imported recipes in `data/meal_planner/`.
 To update: `git pull && docker compose up -d --build`.
 
 ### Without Docker
@@ -72,6 +75,8 @@ The app will start at `http://0.0.0.0:5000`
 Optional environment variables:
 - `PORT` - port to listen on (default `5000`)
 - `FAVOURITES_FILE` - where the favourites are saved (default `favourites.json` next to `app.py`)
+- `MEAL_PLANNER_DATA` - folder for the meal planner's price cache, current plan and imported recipes (default `meal_planner/data/`)
+- `MEAL_PLANNER_PRICE_TTL_H` - hours the meal planner keeps a price before searching again (default `24`)
 - `FLASK_DEBUG=1` - enable debug mode. **Only for local development**: the debugger allows remote code execution, and the app listens on all network interfaces
 
 ### 5. Access from your network
@@ -98,12 +103,69 @@ Example: http://192.168.1.100:5000
 - **Route `/favourites`** - The favourites page
 - **Routes `/api/favourites`** - `GET` lists the favourites, `POST` saves one (`search`, `label` and
   `products`: `{store: {name, url}}`; the same favourite is saved once), `DELETE /api/favourites/<id>` removes one
+- **Routes `/meals/...`** - The meal planner (`meal_planner` blueprint, see below). `meal_planner_search()` gives it
+  the products of one store with `search_store()`, as package price and contents (`MEAL_PLANNER_UNITS`).
+  Products without a size count as 1 kg at the store's price per kg (loose vegetables) or as 1 piece
 
 ### `favourites.py` - Favourites
 - Favourites are kept in a JSON file on the server, so every device (phone, computer) sees the same list
 - A favourite is a search and the chosen product per store (name and URL). Prices are not stored:
   checking the favourites searches again and picks the saved products by URL
 - Writes go through a temporary file (`os.replace`), so a crash never leaves a half-written file
+
+### `meal_planner/` - Meal Planner
+A weekly plan of breakfast, lunch and dinner within a budget, with the shopping list priced in one store or in the
+cheapest store per product. The page is `meal_planner/templates/meal_planner.html`, the settings are kept with the plan.
+
+- **Plan** (`planner.py`): 300 random plans, then local search (changing one recipe at a time) on the best 3.
+  The goal: within the budget, less waste of package leftovers, and variety (the same main protein not twice in a
+  row and not more than twice a week). With "leftovers" on, dinner is cooked twice over and becomes the next day's lunch
+- **Prices** (`pricing.py`): for each ingredient, the package with the lowest **total** cost for the quantity needed
+  (not just the best €/kg). Only the first `MEAL_PLANNER_PAGES` (2) result pages are read, as a plan searches about 70
+  ingredients. Prices are cached for 24 hours in `price_cache.json`; "Ανανέωση τιμών" searches again.
+  An ingredient with no product found gets an estimated price (`fallback_price`), shown as "εκτίμηση"
+- Pantry items (oil, spices, vinegar, sugar) are not costed unless the user asks
+- **Data**: `data/ingredients.json` and `data/recipes.json` come with the code. The price cache, the current plan
+  and imported recipes go to `MEAL_PLANNER_DATA`
+- **API**: `GET /meals/api/meta`, `GET|POST /meals/api/plan` (new plan from the settings), `POST /meals/api/swap`
+  (`{day, meal}`, another recipe for one meal), `GET /meals/api/recipe/<id>?portions=N`,
+  `POST /meals/api/refresh-prices`, `POST /meals/api/reload-recipes`
+
+**Ingredients** (`data/ingredients.json`): `query` is what is searched for in the stores (a list when the stores
+name the product differently, e.g. `["ντομάτες", "τομάτες"]`), `match` words that must be in the product name
+and `exclude` words that rule it out (lowercase, no accents). The search results are first filtered by
+`filter_relevant()`, so `query` should use the words of the product names (e.g. "τοματοπολτός", not "πελτές").
+
+**Recipes** (`data/recipes.json`):
+```json
+{"id": "one_word", "name": "Όνομα", "meal": ["lunch", "dinner"], "category": "chicken",
+ "servings": 4, "time": 45,
+ "ingredients": {"chicken_thigh": 1000, "rice": 300},
+ "steps": ["Βήμα 1", "Βήμα 2"]}
+```
+- `meal`: `["breakfast"]` or `["lunch", "dinner"]`
+- `category`: breakfast_sweet, breakfast_eggs, breakfast_savory, legumes, ladera, chicken, soup_chicken,
+  pasta_chicken, beef, pasta_meat, meat_oven, soup_meat, pork, fish, pasta_fish, pie, salad, veg_fried, eggs
+- Quantities in g / ml / pieces for `servings` portions; the ingredients must be in `ingredients.json`.
+  Vegetarian / fasting are worked out from the `type` of each ingredient
+- Then `POST /meals/api/reload-recipes` or restart the app
+
+**Your own recipes** from any source (a recipe site's API, an export from a recipe app, a JSON file you wrote):
+save them as `recipes_<name>.json` in `MEAL_PLANNER_DATA` (with Docker `data/meal_planner/`), in the same format
+as above. They are loaded together with the built-in ones, and the settings then show
+"Συνταγές: Όλες / Μόνο ενσωματωμένες / Μόνο εισαγόμενες". To take recipes from an API, write a small script
+that fetches them, converts them to this format and saves the file. Check the terms of the source: recipes from
+a website usually belong to the site, so keep such files for personal use and do not publish them.
+Script names `meal_planner/import_*.py` are in `.gitignore`, as are the files in `MEAL_PLANNER_DATA`.
+
+Extra fields for imported recipes:
+- `display`: the original ingredient lines, shown in the recipe instead of the converted quantities
+- `diet`: `{"vegetarian": true, "vegan": false}`, when it is known better than from the ingredient types
+- `source` / `source_name`: link to the original recipe, shown under it
+- Ingredients that are not in `ingredients.json` go in `ingredients_<name>.json` in the same folder, in the
+  format of `ingredients.json`. A recipe with an unknown ingredient is skipped (logged as a warning)
+
+Then `POST /meals/api/reload-recipes` or restart the app.
 
 ### `supermarket_scraper.py` - Core Logic
 
@@ -206,6 +268,10 @@ The stores return everything that loosely matches (e.g. "γάλα" also finds "�
 - Calculates the unit price of every product (`unit_price()`)
 - Returns: Dict with all relevant products per supermarket, best value first
 
+#### Function: `search_store(store, product_name, max_pages=None)`
+- The same for one store (`'ab'`, `'sklavenitis'` or `'mymarket'`), used by the meal planner
+- `max_pages` reads only the first result pages (the stores list the closest matches first); default `MAX_PAGES`
+
 ### `matching.py` - The Same Product in Every Store
 Each store names products its own way, e.g. AB "Απολυμαντικό Ρούχων 2,5lt" (brand DETTOL),
 Sklavenitis "DETTOL Αντιβακτηριδιακό Απολυμαντικό Υγρό Ρούχων 2,5lt", My Market "Dettol Απολυμαντικό Για Τα Ρούχα 2,5lt".
@@ -296,6 +362,13 @@ def search_newstore(self, product_name: str) -> List[Dict]:
   like "για" should be in `FILLER_WORDS`
 - Add the case to `tests/test_matching.py` with the real product names
 
+### Wrong Product in the Meal Planner Shopping List
+
+- Add a word of the wrong product to the ingredient's `exclude` in `meal_planner/data/ingredients.json`
+- Nothing found (an estimated price): check that `query` uses the words of the product names in that store,
+  or add another query to the list
+- Then "Ανανέωση τιμών" on the meal planner page, as prices are cached
+
 ### Change Unit Price Calculation
 
 Add keywords to `UNIT_LABEL_KEYWORDS` (store labels) or `UNIT_ALIASES` (sizes in product names).
@@ -315,6 +388,8 @@ pytest --live                  # also run tests against the real supermarket web
 - `tests/test_relevance.py` - relevance levels and category filtering, with real product names
 - `tests/test_matching.py` - the same product in every store: brand, size, name similarity, variants, ordering
 - `tests/test_app.py` - Flask routes, input validation and favourites
+- `tests/test_meal_planner.py` - meal planner: products for the planner from the scrapers, plans within the budget,
+  swapping a meal, the routes
 - `tests/test_live.py` - real requests to each supermarket; fails when a site changes its URL, API or markup.
   Also checks that all pages are read, that e.g. "φέτα" returns feta and not frozen pies, and that
   "DETTOL Απολυμαντικο Ρούχων" finds the same 2,5lt product in all 3 stores

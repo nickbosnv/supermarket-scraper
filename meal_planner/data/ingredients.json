@@ -1,0 +1,1189 @@
+{
+ "_info": "unit: g | ml | pcs. fallback_price: €/kg for g, €/l for ml, €/piece for pcs (used when no price is found). type: plant | dairy | egg | meat | fish. query: what to search for in the stores, or a list when the stores name the product differently. match: words that MUST be in the product name (lowercase, no accents). exclude: words that rule a product out.",
+ "egg": {
+  "name": "Αυγά",
+  "query": "αυγά",
+  "unit": "pcs",
+  "fallback_price": 0.35,
+  "aisle": "Γαλακτοκομικά & Αυγά",
+  "type": "egg",
+  "match": [
+   "αυγ"
+  ],
+  "exclude": [
+   "σοκολατ",
+   "ζυμαρ",
+   "χυλοπ"
+  ]
+ },
+ "milk": {
+  "name": "Γάλα φρέσκο",
+  "query": "γάλα φρέσκο",
+  "unit": "ml",
+  "fallback_price": 1.6,
+  "aisle": "Γαλακτοκομικά & Αυγά",
+  "type": "dairy",
+  "match": [
+   "γαλα"
+  ],
+  "exclude": [
+   "σοκολατ",
+   "βρεφ",
+   "καρυδ",
+   "αμυγδ",
+   "σογι"
+  ]
+ },
+ "yogurt": {
+  "name": "Γιαούρτι στραγγιστό",
+  "query": "γιαούρτι στραγγιστό",
+  "unit": "g",
+  "fallback_price": 5.5,
+  "aisle": "Γαλακτοκομικά & Αυγά",
+  "type": "dairy",
+  "match": [
+   "γιαουρτ"
+  ],
+  "exclude": [
+   "φρουτ",
+   "μελι",
+   "βανιλ"
+  ]
+ },
+ "feta": {
+  "name": "Φέτα",
+  "query": "φέτα",
+  "unit": "g",
+  "fallback_price": 12.0,
+  "aisle": "Γαλακτοκομικά & Αυγά",
+  "type": "dairy",
+  "match": [
+   "φετα"
+  ]
+ },
+ "graviera": {
+  "name": "Γραβιέρα",
+  "query": "γραβιέρα",
+  "unit": "g",
+  "fallback_price": 14.0,
+  "aisle": "Γαλακτοκομικά & Αυγά",
+  "type": "dairy",
+  "match": [
+   "γραβιερ"
+  ]
+ },
+ "cheese_toast": {
+  "name": "Τυρί για τοστ",
+  "query": "τυρί φέτες",
+  "unit": "g",
+  "fallback_price": 9.0,
+  "aisle": "Γαλακτοκομικά & Αυγά",
+  "type": "dairy",
+  "match": [
+   "τυρι"
+  ],
+  "exclude": [
+   "τυροπιτ",
+   "κρεμα",
+   "αλειφ"
+  ]
+ },
+ "butter": {
+  "name": "Βούτυρο",
+  "query": "βούτυρο",
+  "unit": "g",
+  "fallback_price": 10.0,
+  "aisle": "Γαλακτοκομικά & Αυγά",
+  "type": "dairy",
+  "match": [
+   "βουτυρ"
+  ],
+  "exclude": [
+   "φυστικ",
+   "κακαο",
+   "μπισκοτ"
+  ]
+ },
+ "turkey": {
+  "name": "Γαλοπούλα βραστή",
+  "query": "γαλοπούλα βραστή",
+  "unit": "g",
+  "fallback_price": 12.0,
+  "aisle": "Αλλαντικά",
+  "type": "meat",
+  "match": [
+   "γαλοπουλ"
+  ]
+ },
+ "honey": {
+  "name": "Μέλι",
+  "query": "μέλι",
+  "unit": "g",
+  "fallback_price": 12.0,
+  "aisle": "Πρωινό & Ντουλάπι",
+  "type": "plant",
+  "match": [
+   "μελι"
+  ],
+  "exclude": [
+   "δημητρ",
+   "γιαουρτ",
+   "μπαρ",
+   "μελισσ",
+   "μελιτζ",
+   "καραμελ",
+   "κουλουρ",
+   "μουσταρδ"
+  ]
+ },
+ "jam": {
+  "name": "Μαρμελάδα",
+  "query": "μαρμελάδα",
+  "unit": "g",
+  "fallback_price": 6.0,
+  "aisle": "Πρωινό & Ντουλάπι",
+  "type": "plant",
+  "match": [
+   "μαρμελαδ"
+  ]
+ },
+ "oats": {
+  "name": "Νιφάδες βρώμης",
+  "query": "νιφάδες βρώμης",
+  "unit": "g",
+  "fallback_price": 3.0,
+  "aisle": "Πρωινό & Ντουλάπι",
+  "type": "plant",
+  "match": [
+   "βρωμ"
+  ],
+  "exclude": [
+   "μπαρ",
+   "μπισκοτ",
+   "γαλα"
+  ]
+ },
+ "walnuts": {
+  "name": "Καρύδια",
+  "query": "καρύδια ψίχα",
+  "unit": "g",
+  "fallback_price": 18.0,
+  "aisle": "Πρωινό & Ντουλάπι",
+  "type": "plant",
+  "match": [
+   "καρυδ"
+  ],
+  "exclude": [
+   "γαλα",
+   "λαδι"
+  ]
+ },
+ "bread_toast": {
+  "name": "Ψωμί τοστ",
+  "query": "ψωμί τοστ",
+  "unit": "g",
+  "fallback_price": 4.0,
+  "aisle": "Αρτοποιία",
+  "type": "plant",
+  "match": [
+   "ψωμ"
+  ]
+ },
+ "bread_village": {
+  "name": "Ψωμί χωριάτικο",
+  "query": "ψωμί χωριάτικο",
+  "unit": "g",
+  "fallback_price": 3.0,
+  "aisle": "Αρτοποιία",
+  "type": "plant",
+  "match": [
+   "ψωμ"
+  ]
+ },
+ "pita": {
+  "name": "Πίτες για σουβλάκι",
+  "query": "πίτες σουβλάκι",
+  "unit": "pcs",
+  "fallback_price": 0.35,
+  "aisle": "Αρτοποιία",
+  "type": "plant",
+  "match": [
+   "πιτ"
+  ]
+ },
+ "phyllo": {
+  "name": "Φύλλο κρούστας",
+  "query": "φύλλο κρούστας",
+  "unit": "g",
+  "fallback_price": 6.0,
+  "aisle": "Ψυγείο",
+  "type": "plant",
+  "match": [
+   "φυλλο"
+  ]
+ },
+ "chicken_breast": {
+  "name": "Κοτόπουλο στήθος φιλέτο",
+  "query": "κοτόπουλο στήθος φιλέτο",
+  "unit": "g",
+  "fallback_price": 9.0,
+  "aisle": "Κρέας & Ψάρι",
+  "type": "meat",
+  "match": [
+   "στηθ"
+  ],
+  "exclude": [
+   "ελαιολ",
+   "λαδι",
+   "νερο",
+   "βραστ",
+   "καπνιστ",
+   "παναρισ",
+   "σουβλακ",
+   "μαριναρ"
+  ]
+ },
+ "chicken_thigh": {
+  "name": "Κοτόπουλο μπούτι",
+  "query": "κοτόπουλο μπούτι",
+  "unit": "g",
+  "fallback_price": 5.0,
+  "aisle": "Κρέας & Ψάρι",
+  "type": "meat",
+  "match": [
+   "μπουτ"
+  ]
+ },
+ "minced": {
+  "name": "Κιμάς μοσχαρίσιος",
+  "query": "κιμάς",
+  "unit": "g",
+  "fallback_price": 11.0,
+  "aisle": "Κρέας & Ψάρι",
+  "type": "meat",
+  "match": [
+   "κιμα"
+  ],
+  "exclude": [
+   "σογι",
+   "κοτοπουλ",
+   "γαλοπουλ",
+   "λαζαν",
+   "μπιφτεκ",
+   "πεν",
+   "ντολμα",
+   "μουσακ",
+   "παστιτσ"
+  ]
+ },
+ "pork_chop": {
+  "name": "Χοιρινή μπριζόλα",
+  "query": "χοιρινή μπριζόλα",
+  "unit": "g",
+  "fallback_price": 7.5,
+  "aisle": "Κρέας & Ψάρι",
+  "type": "meat",
+  "match": [
+   "μπριζολ"
+  ]
+ },
+ "pork_leg": {
+  "name": "Χοιρινό μπούτι",
+  "query": "χοιρινό μπούτι",
+  "unit": "g",
+  "fallback_price": 7.0,
+  "aisle": "Κρέας & Ψάρι",
+  "type": "meat",
+  "match": [
+   "χοιριν"
+  ]
+ },
+ "beef": {
+  "name": "Μοσχάρι για κοκκινιστό",
+  "query": "μοσχάρι",
+  "unit": "g",
+  "fallback_price": 13.0,
+  "aisle": "Κρέας & Ψάρι",
+  "type": "meat",
+  "match": [
+   "μοσχαρ",
+   "βοει"
+  ],
+  "exclude": [
+   "κιμα",
+   "σαλτσ",
+   "μπιφτεκ",
+   "μπριζολ",
+   "ribeye",
+   "κονσερβ",
+   "ζωμο",
+   "κυβο",
+   "σκυλ",
+   "γατ",
+   "τροφ",
+   "σνακ",
+   "cesar",
+   "pedigree",
+   "κροκετ"
+  ]
+ },
+ "sausage": {
+  "name": "Λουκάνικα χωριάτικα",
+  "query": "λουκάνικα χωριάτικα",
+  "unit": "g",
+  "fallback_price": 8.0,
+  "aisle": "Κρέας & Ψάρι",
+  "type": "meat",
+  "match": [
+   "λουκαν"
+  ]
+ },
+ "cod": {
+  "name": "Μπακαλιάρος φιλέτο κατεψυγμένο",
+  "query": "μπακαλιάρος φιλέτο",
+  "unit": "g",
+  "fallback_price": 11.0,
+  "aisle": "Κατεψυγμένα",
+  "type": "fish",
+  "match": [
+   "μπακαλιαρ"
+  ]
+ },
+ "salmon": {
+  "name": "Σολομός φιλέτο",
+  "query": "σολομός φιλέτο",
+  "unit": "g",
+  "fallback_price": 22.0,
+  "aisle": "Κρέας & Ψάρι",
+  "type": "fish",
+  "match": [
+   "σολομ"
+  ],
+  "exclude": [
+   "καπνιστ",
+   "ρυζ",
+   "νερο",
+   "ελαιολ",
+   "λαδι",
+   "σαλατ",
+   "σαλτσ"
+  ]
+ },
+ "tuna": {
+  "name": "Τόνος σε νερό",
+  "query": "τόνος σε νερό",
+  "unit": "g",
+  "fallback_price": 14.0,
+  "aisle": "Κονσέρβες",
+  "type": "fish",
+  "match": [
+   "τονο"
+  ]
+ },
+ "lentils": {
+  "name": "Φακές",
+  "query": "φακές",
+  "unit": "g",
+  "fallback_price": 3.0,
+  "aisle": "Όσπρια, Ρύζι & Ζυμαρικά",
+  "type": "plant",
+  "match": [
+   "φακ"
+  ],
+  "exclude": [
+   "επαφ",
+   "κονσερβ"
+  ]
+ },
+ "chickpeas": {
+  "name": "Ρεβίθια",
+  "query": "ρεβίθια",
+  "unit": "g",
+  "fallback_price": 3.5,
+  "aisle": "Όσπρια, Ρύζι & Ζυμαρικά",
+  "type": "plant",
+  "match": [
+   "ρεβιθ"
+  ],
+  "exclude": [
+   "χουμου",
+   "νερο",
+   "κονσερβ",
+   "κατεψ",
+   "σαλατ"
+  ]
+ },
+ "beans": {
+  "name": "Φασόλια μέτρια",
+  "query": "φασόλια μέτρια",
+  "unit": "g",
+  "fallback_price": 4.0,
+  "aisle": "Όσπρια, Ρύζι & Ζυμαρικά",
+  "type": "plant",
+  "match": [
+   "φασολ"
+  ],
+  "exclude": [
+   "γιγαντ",
+   "φασολακ"
+  ]
+ },
+ "gigantes": {
+  "name": "Φασόλια γίγαντες",
+  "query": "φασόλια γίγαντες",
+  "unit": "g",
+  "fallback_price": 6.0,
+  "aisle": "Όσπρια, Ρύζι & Ζυμαρικά",
+  "type": "plant",
+  "match": [
+   "γιγαντ"
+  ],
+  "exclude": [
+   "κονσερβ"
+  ]
+ },
+ "rice": {
+  "name": "Ρύζι καρολίνα",
+  "query": "ρύζι καρολίνα",
+  "unit": "g",
+  "fallback_price": 2.5,
+  "aisle": "Όσπρια, Ρύζι & Ζυμαρικά",
+  "type": "plant",
+  "match": [
+   "ρυζ"
+  ],
+  "exclude": [
+   "γαλα",
+   "κρακερ"
+  ]
+ },
+ "spaghetti": {
+  "name": "Μακαρόνια Νο10",
+  "query": "σπαγγέτι",
+  "unit": "g",
+  "fallback_price": 1.6,
+  "aisle": "Όσπρια, Ρύζι & Ζυμαρικά",
+  "type": "plant",
+  "match": [
+   "μακαρον",
+   "σπαγγετ"
+  ],
+  "exclude": [
+   "σαλτσ",
+   "μπολονεζ",
+   "ετοιμ"
+  ]
+ },
+ "penne": {
+  "name": "Πένες",
+  "query": [
+   "πένες",
+   "πέννες"
+  ],
+  "unit": "g",
+  "fallback_price": 1.8,
+  "aisle": "Όσπρια, Ρύζι & Ζυμαρικά",
+  "type": "plant",
+  "match": [
+   "πεν"
+  ],
+  "exclude": [
+   "σαλατ",
+   "κοτοπουλ",
+   "κιμα"
+  ]
+ },
+ "orzo": {
+  "name": "Κριθαράκι",
+  "query": "κριθαράκι",
+  "unit": "g",
+  "fallback_price": 2.2,
+  "aisle": "Όσπρια, Ρύζι & Ζυμαρικά",
+  "type": "plant",
+  "match": [
+   "κριθαρ"
+  ]
+ },
+ "pasta_pastitsio": {
+  "name": "Μακαρόνια παστίτσιο Νο2",
+  "query": "παστίτσιο",
+  "unit": "g",
+  "fallback_price": 1.8,
+  "aisle": "Όσπρια, Ρύζι & Ζυμαρικά",
+  "type": "plant",
+  "match": [
+   "μακαρον",
+   "νο 2",
+   "νο2",
+   "no 2",
+   "no2"
+  ],
+  "exclude": [
+   "κιμα",
+   "κατεψ",
+   "μπεσαμελ",
+   "μοσχαρ"
+  ]
+ },
+ "flour": {
+  "name": "Αλεύρι για όλες τις χρήσεις",
+  "query": "αλεύρι για όλες τις χρήσεις",
+  "unit": "g",
+  "fallback_price": 1.2,
+  "aisle": "Όσπρια, Ρύζι & Ζυμαρικά",
+  "type": "plant",
+  "match": [
+   "αλευρ"
+  ]
+ },
+ "tomato": {
+  "name": "Ντομάτες",
+  "query": [
+   "ντομάτες",
+   "τομάτες"
+  ],
+  "unit": "g",
+  "fallback_price": 2.5,
+  "aisle": "Φρούτα & Λαχανικά",
+  "type": "plant",
+  "match": [
+   "τοματ"
+  ],
+  "exclude": [
+   "κονσερβ",
+   "πελτ",
+   "πολτ",
+   "χυμο",
+   "σαλτσ",
+   "κετσαπ",
+   "ψιλοκομ",
+   "αποξηρ",
+   "τριμμ",
+   "τριφτ",
+   "passata",
+   "πασσατα",
+   "συμπυκ",
+   "λιαστ",
+   "σπιτικ",
+   "τσαμπι",
+   "cherry",
+   "τσερι",
+   "ντοματινι",
+   "αποφλοι",
+   "περαστ",
+   "μυλο"
+  ]
+ },
+ "tomato_canned": {
+  "name": "Ντομάτα ψιλοκομμένη κονσέρβα",
+  "query": [
+   "ψιλοκομμένη ντομάτα",
+   "τομάτα ψιλοκομμένη"
+  ],
+  "unit": "g",
+  "fallback_price": 2.5,
+  "aisle": "Κονσέρβες",
+  "type": "plant",
+  "match": [
+   "τοματ"
+  ],
+  "exclude": [
+   "κρεμμυδ",
+   "βασιλικ",
+   "σκορδ",
+   "πιπερι"
+  ]
+ },
+ "tomato_paste": {
+  "name": "Πελτές ντομάτας",
+  "query": [
+   "τοματοπολτός",
+   "πελτές"
+  ],
+  "unit": "g",
+  "fallback_price": 5.0,
+  "aisle": "Κονσέρβες",
+  "type": "plant",
+  "match": [
+   "πελτ",
+   "τοματοπολτ"
+  ],
+  "exclude": [
+   "πιπερ"
+  ]
+ },
+ "onion": {
+  "name": "Κρεμμύδια ξερά",
+  "query": "κρεμμύδια ξερά",
+  "unit": "g",
+  "fallback_price": 1.2,
+  "aisle": "Φρούτα & Λαχανικά",
+  "type": "plant",
+  "match": [
+   "κρεμμυδ"
+  ],
+  "exclude": [
+   "φρεσκ",
+   "σκονη"
+  ]
+ },
+ "garlic": {
+  "name": "Σκόρδο",
+  "query": "σκόρδο",
+  "unit": "g",
+  "fallback_price": 8.0,
+  "aisle": "Φρούτα & Λαχανικά",
+  "type": "plant",
+  "match": [
+   "σκορδ"
+  ],
+  "exclude": [
+   "σκονη",
+   "σαλτσ",
+   "αποξηρ",
+   "τριμμ",
+   "ψιλοκομ",
+   "τεμαχισ",
+   "κατεψ",
+   "μαγιονεζ",
+   "πουρε",
+   "κοκκο",
+   "πολτ",
+   "καπνιστ",
+   "θρυμμ",
+   "βαζο",
+   "ανατολ",
+   "sonnentor",
+   "mccormick"
+  ]
+ },
+ "potato": {
+  "name": "Πατάτες",
+  "query": "πατάτες",
+  "unit": "g",
+  "fallback_price": 1.1,
+  "aisle": "Φρούτα & Λαχανικά",
+  "type": "plant",
+  "match": [
+   "πατατ"
+  ],
+  "exclude": [
+   "τσιπς",
+   "κατεψ",
+   "chips",
+   "πουρε",
+   "προτηγαν",
+   "ροδελ",
+   "φουρνου",
+   "γλυκοπατατ",
+   "τηγαν",
+   "baby",
+   "crinkle",
+   "original",
+   "ριγε"
+  ]
+ },
+ "carrot": {
+  "name": "Καρότα",
+  "query": "καρότα",
+  "unit": "g",
+  "fallback_price": 1.2,
+  "aisle": "Φρούτα & Λαχανικά",
+  "type": "plant",
+  "match": [
+   "καροτ"
+  ],
+  "exclude": [
+   "χυμο"
+  ]
+ },
+ "zucchini": {
+  "name": "Κολοκυθάκια",
+  "query": [
+   "κολοκυθάκια",
+   "κολοκύθια"
+  ],
+  "unit": "g",
+  "fallback_price": 2.5,
+  "aisle": "Φρούτα & Λαχανικά",
+  "type": "plant",
+  "match": [
+   "κολοκυθ"
+  ],
+  "exclude": [
+   "γεμιστ",
+   "αυγολεμ",
+   "τηγαν",
+   "μπουρεκ",
+   "στρογγυλ",
+   "κατεψ",
+   "κολοκυθα",
+   "κολοκυθεσ",
+   "halloween"
+  ]
+ },
+ "peppers": {
+  "name": "Πιπεριές πράσινες",
+  "query": "πιπεριές πράσινες",
+  "unit": "g",
+  "fallback_price": 3.0,
+  "aisle": "Φρούτα & Λαχανικά",
+  "type": "plant",
+  "match": [
+   "πιπερι"
+  ],
+  "exclude": [
+   "τουρσ",
+   "σαλτσ"
+  ]
+ },
+ "eggplant": {
+  "name": "Μελιτζάνες",
+  "query": "μελιτζάνες",
+  "unit": "g",
+  "fallback_price": 2.5,
+  "aisle": "Φρούτα & Λαχανικά",
+  "type": "plant",
+  "match": [
+   "μελιτζαν"
+  ],
+  "exclude": [
+   "σαλατ"
+  ]
+ },
+ "spinach": {
+  "name": "Σπανάκι κατεψυγμένο",
+  "query": "σπανάκι",
+  "unit": "g",
+  "fallback_price": 3.0,
+  "aisle": "Κατεψυγμένα",
+  "type": "plant",
+  "match": [
+   "σπανακ"
+  ],
+  "exclude": [
+   "πιτ",
+   "ρυζ",
+   "κρακερ",
+   "baby",
+   "σαλατ"
+  ]
+ },
+ "green_beans": {
+  "name": "Φασολάκια κατεψυγμένα",
+  "query": "φασολάκια",
+  "unit": "g",
+  "fallback_price": 3.0,
+  "aisle": "Κατεψυγμένα",
+  "type": "plant",
+  "match": [
+   "φασολακ",
+   "φασολι"
+  ],
+  "exclude": [
+   "λαδερ",
+   "μαγειρ",
+   "κονσερβ"
+  ]
+ },
+ "peas": {
+  "name": "Αρακάς κατεψυγμένος",
+  "query": "αρακάς",
+  "unit": "g",
+  "fallback_price": 3.5,
+  "aisle": "Κατεψυγμένα",
+  "type": "plant",
+  "match": [
+   "αρακα"
+  ],
+  "exclude": [
+   "κονσερβ",
+   "λαδερ",
+   "μαγειρ"
+  ]
+ },
+ "cucumber": {
+  "name": "Αγγούρι",
+  "query": "αγγούρι",
+  "unit": "pcs",
+  "fallback_price": 0.6,
+  "aisle": "Φρούτα & Λαχανικά",
+  "type": "plant",
+  "match": [
+   "αγγουρ"
+  ],
+  "exclude": [
+   "τουρσ"
+  ]
+ },
+ "lettuce": {
+  "name": "Μαρούλι",
+  "query": "μαρούλι",
+  "unit": "pcs",
+  "fallback_price": 0.8,
+  "aisle": "Φρούτα & Λαχανικά",
+  "type": "plant",
+  "match": [
+   "μαρουλ"
+  ]
+ },
+ "cabbage": {
+  "name": "Λάχανο",
+  "query": "λάχανο",
+  "unit": "g",
+  "fallback_price": 1.0,
+  "aisle": "Φρούτα & Λαχανικά",
+  "type": "plant",
+  "match": [
+   "λαχαν"
+  ],
+  "exclude": [
+   "τουρσ",
+   "κοκκιν"
+  ]
+ },
+ "lemon": {
+  "name": "Λεμόνια",
+  "query": "λεμόνια",
+  "unit": "g",
+  "fallback_price": 2.0,
+  "aisle": "Φρούτα & Λαχανικά",
+  "type": "plant",
+  "match": [
+   "λεμον"
+  ],
+  "exclude": [
+   "χυμο",
+   "λεμοναδ",
+   "αναψυκ"
+  ]
+ },
+ "banana": {
+  "name": "Μπανάνες",
+  "query": "μπανάνες",
+  "unit": "g",
+  "fallback_price": 1.8,
+  "aisle": "Φρούτα & Λαχανικά",
+  "type": "plant",
+  "match": [
+   "μπαναν"
+  ],
+  "exclude": [
+   "τσιπς",
+   "χυμο"
+  ]
+ },
+ "apple": {
+  "name": "Μήλα",
+  "query": "μήλα",
+  "unit": "g",
+  "fallback_price": 2.0,
+  "aisle": "Φρούτα & Λαχανικά",
+  "type": "plant",
+  "match": [
+   "μηλ"
+  ],
+  "exclude": [
+   "χυμο",
+   "ξυδ"
+  ]
+ },
+ "mushrooms": {
+  "name": "Μανιτάρια",
+  "query": "μανιτάρια",
+  "unit": "g",
+  "fallback_price": 6.0,
+  "aisle": "Φρούτα & Λαχανικά",
+  "type": "plant",
+  "match": [
+   "μανιταρ"
+  ],
+  "exclude": [
+   "κονσερβ",
+   "σαλτσ",
+   "αποξηρ",
+   "πλευρωτ",
+   "μανιταροσουπ",
+   "πιτσ",
+   "ριζοτ"
+  ]
+ },
+ "parsley": {
+  "name": "Μαϊντανός (ματσάκι)",
+  "query": "μαϊντανός",
+  "unit": "pcs",
+  "fallback_price": 0.6,
+  "aisle": "Φρούτα & Λαχανικά",
+  "type": "plant",
+  "match": [
+   "μαιντανο"
+  ]
+ },
+ "dill": {
+  "name": "Άνηθος (ματσάκι)",
+  "query": "άνηθος",
+  "unit": "pcs",
+  "fallback_price": 0.6,
+  "aisle": "Φρούτα & Λαχανικά",
+  "type": "plant",
+  "match": [
+   "ανηθ"
+  ]
+ },
+ "spring_onion": {
+  "name": "Φρέσκα κρεμμυδάκια (ματσάκι)",
+  "query": "φρέσκα κρεμμυδάκια",
+  "unit": "pcs",
+  "fallback_price": 0.6,
+  "aisle": "Φρούτα & Λαχανικά",
+  "type": "plant",
+  "match": [
+   "κρεμμυδ"
+  ]
+ },
+ "olives": {
+  "name": "Ελιές Καλαμών",
+  "query": "ελιές καλαμών",
+  "unit": "g",
+  "fallback_price": 8.0,
+  "aisle": "Κονσέρβες",
+  "type": "plant",
+  "match": [
+   "ελι"
+  ],
+  "exclude": [
+   "λαδι",
+   "ελαιολ",
+   "πατε"
+  ]
+ },
+ "olive_oil": {
+  "name": "Ελαιόλαδο",
+  "query": "ελαιόλαδο εξαιρετικό παρθένο",
+  "unit": "ml",
+  "fallback_price": 9.0,
+  "aisle": "Λάδια & Μπαχαρικά",
+  "type": "plant",
+  "pantry": true,
+  "match": [
+   "ελαιολαδ"
+  ]
+ },
+ "vinegar": {
+  "name": "Ξύδι",
+  "query": "ξύδι",
+  "unit": "ml",
+  "fallback_price": 1.5,
+  "aisle": "Λάδια & Μπαχαρικά",
+  "type": "plant",
+  "pantry": true,
+  "match": [
+   "ξυδ"
+  ]
+ },
+ "sugar": {
+  "name": "Ζάχαρη",
+  "query": "ζάχαρη λευκή",
+  "unit": "g",
+  "fallback_price": 1.3,
+  "aisle": "Λάδια & Μπαχαρικά",
+  "type": "plant",
+  "pantry": true,
+  "match": [
+   "ζαχαρ"
+  ]
+ },
+ "oregano": {
+  "name": "Ρίγανη",
+  "query": "ρίγανη",
+  "unit": "g",
+  "fallback_price": 40.0,
+  "aisle": "Λάδια & Μπαχαρικά",
+  "type": "plant",
+  "pantry": true,
+  "match": [
+   "ριγαν"
+  ]
+ },
+ "cinnamon": {
+  "name": "Κανέλα",
+  "query": "κανέλα τριμμένη",
+  "unit": "g",
+  "fallback_price": 40.0,
+  "aisle": "Λάδια & Μπαχαρικά",
+  "type": "plant",
+  "pantry": true,
+  "match": [
+   "κανελ"
+  ]
+ },
+ "nutmeg": {
+  "name": "Μοσχοκάρυδο",
+  "query": "μοσχοκάρυδο",
+  "unit": "g",
+  "fallback_price": 60.0,
+  "aisle": "Λάδια & Μπαχαρικά",
+  "type": "plant",
+  "pantry": true,
+  "match": [
+   "μοσχοκαρυδ"
+  ]
+ },
+ "bay_leaf": {
+  "name": "Δάφνη",
+  "query": "φύλλα δάφνης",
+  "unit": "g",
+  "fallback_price": 60.0,
+  "aisle": "Λάδια & Μπαχαρικά",
+  "type": "plant",
+  "pantry": true,
+  "match": [
+   "δαφν"
+  ]
+ },
+ "tahini": {
+  "name": "Ταχίνι",
+  "query": "ταχίνι",
+  "unit": "g",
+  "fallback_price": 9.0,
+  "aisle": "Πρωινό & Ντουλάπι",
+  "type": "plant",
+  "match": [
+   "ταχιν"
+  ],
+  "exclude": [
+   "χαλβα"
+  ]
+ },
+ "orange": {
+  "name": "Πορτοκάλια",
+  "query": "πορτοκάλια",
+  "unit": "g",
+  "fallback_price": 1.5,
+  "aisle": "Φρούτα & Λαχανικά",
+  "type": "plant",
+  "match": [
+   "πορτοκαλ"
+  ],
+  "exclude": [
+   "χυμο",
+   "αναψυκ"
+  ]
+ },
+ "white_wine": {
+  "name": "Λευκό κρασί",
+  "query": [
+   "λευκός οίνος ξηρός",
+   "κρασί λευκό"
+  ],
+  "unit": "ml",
+  "fallback_price": 5.0,
+  "aisle": "Κάβα",
+  "type": "plant",
+  "match": [
+   "κρασ",
+   "οινο"
+  ],
+  "exclude": [
+   "ξυδ",
+   "ημιξηρ",
+   "γλυκ"
+  ]
+ },
+ "cream": {
+  "name": "Κρέμα γάλακτος",
+  "query": "κρέμα γάλακτος",
+  "unit": "ml",
+  "fallback_price": 5.0,
+  "aisle": "Γαλακτοκομικά & Αυγά",
+  "type": "dairy",
+  "match": [
+   "κρεμα"
+  ],
+  "exclude": [
+   "σαντιγ",
+   "παγωτ",
+   "φυτικ"
+  ]
+ },
+ "mozzarella": {
+  "name": "Μοτσαρέλα",
+  "query": "μοτσαρέλα",
+  "unit": "g",
+  "fallback_price": 10.0,
+  "aisle": "Γαλακτοκομικά & Αυγά",
+  "type": "dairy",
+  "match": [
+   "μοτσαρελ"
+  ]
+ },
+ "sweet_potato": {
+  "name": "Γλυκοπατάτες",
+  "query": "γλυκοπατάτες",
+  "unit": "g",
+  "fallback_price": 2.5,
+  "aisle": "Φρούτα & Λαχανικά",
+  "type": "plant",
+  "match": [
+   "γλυκοπατατ"
+  ],
+  "exclude": [
+   "τσιπς",
+   "gerber",
+   "λαχανικ",
+   "βρεφ",
+   "κατεψ"
+  ]
+ },
+ "bacon": {
+  "name": "Μπέικον",
+  "query": "μπέικον",
+  "unit": "g",
+  "fallback_price": 14.0,
+  "aisle": "Αλλαντικά",
+  "type": "meat",
+  "match": [
+   "μπεικον",
+   "bacon"
+  ]
+ },
+ "lamb": {
+  "name": "Αρνί",
+  "query": "αρνί",
+  "unit": "g",
+  "fallback_price": 13.0,
+  "aisle": "Κρέας & Ψάρι",
+  "type": "meat",
+  "match": [
+   "αρν"
+  ],
+  "exclude": [
+   "κοτοπουλ",
+   "χοιριν",
+   "βοει",
+   "σκυλ",
+   "γατ",
+   "τροφ",
+   "σνακ",
+   "συκωτ"
+  ]
+ },
+ "shrimp": {
+  "name": "Γαρίδες κατεψυγμένες",
+  "query": "γαρίδες",
+  "unit": "g",
+  "fallback_price": 14.0,
+  "aisle": "Κατεψυγμένα",
+  "type": "fish",
+  "match": [
+   "γαριδ"
+  ],
+  "exclude": [
+   "απομιμ",
+   "σουριμ",
+   "σαλατ",
+   "σαλτσ",
+   "κρακερ"
+  ]
+ }
+}

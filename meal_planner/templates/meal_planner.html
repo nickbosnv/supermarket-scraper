@@ -1,0 +1,272 @@
+<!doctype html>
+<html lang="el">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Πλάνο Γευμάτων</title>
+<style>
+:root{--bg:#f6f3ec;--card:#fffdf8;--ink:#23271f;--mute:#6f7366;--line:#e4dfd2;--green:#2f5d3a;--green2:#e3ecdf;--amber:#b7791f;--red:#a8432f;--radius:14px}
+@media (prefers-color-scheme:dark){:root{--bg:#171a16;--card:#21251f;--ink:#ecebe4;--mute:#a3a79a;--line:#343a31;--green:#8fc39a;--green2:#2a3a2d;--amber:#e0a84c;--red:#e07a64}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.45 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;padding-bottom:84px}
+header{padding:18px 16px 8px;max-width:980px;margin:auto}
+h1{font-size:22px;margin:0;letter-spacing:-.3px}
+.sub{color:var(--mute);font-size:13px}
+.back{color:var(--green);font-size:13px;text-decoration:none}
+main{max-width:980px;margin:auto;padding:0 16px}
+.summary{display:flex;gap:10px;flex-wrap:wrap;margin:12px 0}
+.pill{background:var(--card);border:1px solid var(--line);border-radius:999px;padding:8px 14px;font-size:14px}
+.pill b{font-variant-numeric:tabular-nums}
+.ok{color:var(--green)}.over{color:var(--red)}
+.bar{height:8px;background:var(--line);border-radius:6px;overflow:hidden;margin:4px 0 14px}
+.bar i{display:block;height:100%;background:var(--green)}
+.bar.over i{background:var(--red)}
+.days{display:grid;gap:12px;grid-template-columns:repeat(auto-fill,minmax(280px,1fr))}
+.day{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:12px 14px}
+.day h3{margin:0 0 6px;font-size:15px}
+.meal{display:flex;align-items:center;gap:10px;padding:8px 0;border-top:1px solid var(--line)}
+.meal:first-of-type{border-top:0}
+.meal .lbl{width:98px;flex:none;font-size:11px;color:var(--mute);text-transform:uppercase;letter-spacing:.4px}
+.meal .nm{flex:1;cursor:pointer}
+.meal .nm small{display:block;color:var(--mute);font-size:12px}
+.tag{display:inline-block;font-size:11px;background:var(--green2);color:var(--green);border-radius:6px;padding:1px 6px;margin-top:2px}
+button{font:inherit;cursor:pointer;border-radius:10px;border:1px solid var(--line);background:var(--card);color:var(--ink);padding:9px 14px}
+button.primary{background:var(--green);color:var(--bg);border-color:var(--green);font-weight:600}
+button.icon{padding:6px 9px;font-size:16px;line-height:1}
+button:disabled{opacity:.5;cursor:wait}
+.aisle{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);margin-bottom:12px;overflow:hidden}
+.aisle h3{margin:0;padding:10px 14px;font-size:14px;background:var(--green2);color:var(--green)}
+.item{display:flex;gap:10px;align-items:flex-start;padding:10px 14px;border-top:1px solid var(--line)}
+.item input{width:20px;height:20px;margin-top:2px;accent-color:var(--green)}
+.item .t{flex:1}
+.item .t small{display:block;color:var(--mute);font-size:12px}
+.item .c{font-variant-numeric:tabular-nums;white-space:nowrap}
+.item.done .t,.item.done .c{opacity:.45;text-decoration:line-through}
+.est{color:var(--amber);font-size:11px}
+form{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:14px;display:grid;gap:14px}
+label{display:grid;gap:5px;font-size:13px;color:var(--mute)}
+input[type=number],select{width:100%;min-width:0;font:inherit;padding:9px 10px;border-radius:10px;border:1px solid var(--line);background:var(--bg);color:var(--ink)}
+.row{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:12px}
+label{min-width:0}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chips label{display:flex;align-items:center;gap:6px;flex-direction:row;border:1px solid var(--line);border-radius:999px;padding:6px 10px;color:var(--ink);font-size:13px}
+.chips input{accent-color:var(--green)}
+details summary{cursor:pointer;color:var(--ink);font-size:14px}
+.excl{max-height:220px;overflow:auto;margin-top:8px}
+nav{position:fixed;bottom:0;left:0;right:0;display:flex;background:var(--card);border-top:1px solid var(--line);padding:6px 6px calc(6px + env(safe-area-inset-bottom))}
+nav button{flex:1;border:0;background:none;font-size:13px;color:var(--mute);padding:8px 4px}
+nav button.on{color:var(--green);font-weight:600}
+.view{display:none}.view.on{display:block}
+dialog{border:0;border-radius:var(--radius);padding:0;max-width:560px;width:calc(100% - 24px);background:var(--card);color:var(--ink)}
+dialog::backdrop{background:rgba(0,0,0,.45)}
+.dlg{padding:18px}
+.dlg h2{margin:0 0 4px;font-size:19px}
+.dlg ul,.dlg ol{padding-left:20px}
+.dlg a{color:var(--green)}
+.dlg details{margin:-4px 0 8px;font-size:14px}
+.dlg summary{cursor:pointer;color:var(--mute)}
+.dlg summary:focus:not(:focus-visible){outline:none}
+.dlg li{margin:4px 0}
+.muted{color:var(--mute)}
+.empty{text-align:center;padding:40px 10px;color:var(--mute)}
+.toast{position:fixed;left:50%;bottom:90px;transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:10px 16px;border-radius:10px;font-size:14px;display:none;z-index:9}
+.stores{display:flex;gap:8px;flex-wrap:wrap;font-size:13px;color:var(--mute);margin-bottom:10px}
+</style>
+</head>
+<body>
+<header>
+  <a class="back" href="/">← Price Finder</a>
+  <h1>Πλάνο Γευμάτων</h1>
+  <div class="sub" id="sub">Εβδομαδιαίο πρόγραμμα με τιμές σούπερ μάρκετ</div>
+</header>
+<main>
+  <section class="view on" id="v-week">
+    <div id="sum"></div>
+    <div id="days" class="days"></div>
+  </section>
+  <section class="view" id="v-shop">
+    <div id="shop"></div>
+  </section>
+  <section class="view" id="v-set">
+    <form id="f">
+      <div class="row">
+        <label>Άτομα<input type="number" name="persons" min="1" max="12" value="2"></label>
+        <label>Budget εβδομάδας (€)<input type="number" name="budget" min="0" step="1" value="60"></label>
+      </div>
+      <div class="row">
+        <label>Σούπερ μάρκετ<select name="store" id="store"></select></label>
+        <label>Διατροφή<select name="diet" id="diet"></select></label>
+      </div>
+      <label id="srcwrap" hidden>Συνταγές<select name="source" id="source"></select></label>
+      <div><div class="muted" style="font-size:13px;margin-bottom:6px">Γεύματα</div><div class="chips" id="meals"></div></div>
+      <div class="chips">
+        <label><input type="checkbox" name="leftovers" checked> Το βραδινό γίνεται μεσημεριανό της επόμενης</label>
+        <label><input type="checkbox" name="include_pantry"> Μέτρα και τα βασικά (λάδι, μπαχαρικά)</label>
+      </div>
+      <details><summary>Υλικά που δεν θέλω / αλλεργίες</summary><div class="chips excl" id="excl"></div></details>
+      <button class="primary" id="go" type="submit">Φτιάξε πλάνο</button>
+      <button type="button" id="refresh">Ανανέωση τιμών</button>
+    </form>
+  </section>
+</main>
+<nav>
+  <button data-v="week" class="on">Εβδομάδα</button>
+  <button data-v="shop">Λίστα αγορών</button>
+  <button data-v="set">Ρυθμίσεις</button>
+</nav>
+<dialog id="dlg"><div class="dlg" id="dlgc"></div></dialog>
+<div class="toast" id="toast"></div>
+<script>
+const $ = s => document.querySelector(s);
+const API = location.pathname.replace(/\/$/, '') + '/api';
+let META = null, PLAN = null;
+const MEAL_KEYS = ['breakfast', 'lunch', 'dinner'];
+const eur = v => (v ?? 0).toLocaleString('el-GR', {style: 'currency', currency: 'EUR'});
+const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const fmtQ = (q, u) => u === 'pcs' ? `${q} τεμ` : q >= 1000 ? `${+(q/1000).toFixed(2)} ${u === 'g' ? 'kg' : 'l'}` : `${Math.round(q)} ${u}`;
+
+function toast(msg) { const t = $('#toast'); t.textContent = msg; t.style.display = 'block'; clearTimeout(t._h); t._h = setTimeout(() => t.style.display = 'none', 2600); }
+function show(v) {
+  document.querySelectorAll('.view').forEach(x => x.classList.toggle('on', x.id === 'v-' + v));
+  document.querySelectorAll('nav button').forEach(b => b.classList.toggle('on', b.dataset.v === v));
+  scrollTo(0, 0);
+}
+document.querySelectorAll('nav button').forEach(b => b.onclick = () => show(b.dataset.v));
+
+async function api(path, body) {
+  const r = await fetch(API + path, body === undefined ? {} : {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body)});
+  const j = await r.json();
+  if (!r.ok) throw new Error(j.error || 'Σφάλμα');
+  return j;
+}
+
+function storeName(k) { return k === 'cheapest' ? 'Φθηνότερο ανά προϊόν' : k === 'estimate' ? 'Εκτίμηση' : (META.stores[k] || k); }
+
+function buildForm() {
+  $('#store').innerHTML = Object.entries(META.stores).map(([k, v]) => `<option value="${k}">${v}</option>`).join('') + '<option value="cheapest">Φθηνότερο ανά προϊόν (όλα)</option>';
+  $('#diet').innerHTML = Object.entries(META.diets).map(([k, v]) => `<option value="${k}">${v}</option>`).join('');
+  const sc = META.source_counts || {};
+  $('#source').innerHTML = ['all', 'builtin', 'imported'].map(k => `<option value="${k}">${META.sources[k]}${k === 'all' ? '' : ` (${sc[k] || 0})`}</option>`).join('');
+  $('#srcwrap').hidden = !sc.imported;
+  $('#meals').innerHTML = MEAL_KEYS.map(k => [k, META.meals[k]]).map(([k, v]) => `<label><input type="checkbox" name="meals" value="${k}" checked> ${v}</label>`).join('');
+  $('#excl').innerHTML = META.ingredients.filter(i => !i.pantry).map(i => `<label><input type="checkbox" name="exclude" value="${i.id}"> ${esc(i.name)}</label>`).join('');
+}
+
+function fillForm(s) {
+  const f = $('#f');
+  f.persons.value = s.persons; f.budget.value = s.budget; f.store.value = s.store; f.diet.value = s.diet;
+  f.source.value = s.source || 'all';
+  f.leftovers.checked = s.leftovers; f.include_pantry.checked = s.include_pantry;
+  f.querySelectorAll('[name=meals]').forEach(c => c.checked = s.meals.includes(c.value));
+  f.querySelectorAll('[name=exclude]').forEach(c => c.checked = s.exclude.includes(c.value));
+}
+
+function readForm() {
+  const f = $('#f');
+  return {
+    persons: +f.persons.value, budget: +f.budget.value, store: f.store.value, diet: f.diet.value, source: f.source.value,
+    leftovers: f.leftovers.checked, include_pantry: f.include_pantry.checked,
+    meals: [...f.querySelectorAll('[name=meals]:checked')].map(c => c.value),
+    exclude: [...f.querySelectorAll('[name=exclude]:checked')].map(c => c.value),
+  };
+}
+
+function render() {
+  if (!PLAN) {
+    $('#days').innerHTML = `<div class="empty">Δεν υπάρχει πλάνο ακόμα.<br><br><button class="primary" onclick="show('set')">Ρυθμίσεις & δημιουργία</button></div>`;
+    $('#sum').innerHTML = ''; $('#shop').innerHTML = '<div class="empty">Η λίστα θα εμφανιστεί μόλις φτιάξεις πλάνο.</div>';
+    return;
+  }
+  const s = PLAN.settings, pct = s.budget ? Math.min(100, PLAN.total / s.budget * 100) : 100;
+  $('#sub').textContent = `${s.persons} άτομα · ${storeName(s.store)} · ${META.diets[s.diet]}`;
+  $('#sum').innerHTML = `
+    <div class="summary">
+      <span class="pill">Σύνολο <b class="${PLAN.within_budget ? 'ok' : 'over'}">${eur(PLAN.total)}</b> / ${eur(s.budget)}</span>
+      <span class="pill">Ανά άτομο/ημέρα <b>${eur(PLAN.total / s.persons / 7)}</b></span>
+      ${PLAN.estimated ? `<span class="pill est">${PLAN.estimated} τιμές εκτιμώμενες</span>` : ''}
+      <button class="primary" id="regen">Νέο πλάνο</button>
+    </div>
+    <div class="bar ${PLAN.within_budget ? '' : 'over'}"><i style="width:${pct}%"></i></div>
+    ${PLAN.within_budget ? '' : '<div class="over" style="font-size:13px;margin:-6px 0 12px">Δεν χωράει στο budget με αυτά τα φίλτρα — αυτό είναι το φθηνότερο που βρέθηκε.</div>'}`;
+  $('#regen').onclick = () => generate(PLAN.settings);
+
+  $('#days').innerHTML = PLAN.days.map((d, di) => `
+    <div class="day"><h3>${d.name}</h3>
+      ${MEAL_KEYS.filter(m => d.meals[m]).map(m => {
+        const x = d.meals[m];
+        return `<div class="meal">
+          <div class="lbl">${META.meals[m]}</div>
+          <div class="nm" data-r="${x.recipe_id}" data-p="${x.cook_portions || s.persons}">${esc(x.name)}
+            <small>${x.leftover ? '<span class="tag">από χθες</span>' : `${x.time}′${x.cook_portions > s.persons ? ` · μαγείρεψε ${x.cook_portions} μερίδες` : ''}`}</small></div>
+          <button class="icon" title="Άλλαξε" data-d="${di}" data-m="${m}">↻</button>
+        </div>`;
+      }).join('')}
+    </div>`).join('');
+  $('#days').querySelectorAll('.nm').forEach(el => el.onclick = () => openRecipe(el.dataset.r, el.dataset.p));
+  $('#days').querySelectorAll('button[data-d]').forEach(b => b.onclick = () => swap(+b.dataset.d, b.dataset.m, b));
+
+  const key = 'mp-check-' + PLAN.generated_at;
+  let checked = {}; try { checked = JSON.parse(localStorage.getItem(key) || '{}'); } catch (e) {}
+  const stores = Object.entries(PLAN.by_store).map(([k, v]) => `<span>${storeName(k)}: <b>${eur(v)}</b></span>`).join(' · ');
+  $('#shop').innerHTML = `<div class="stores">${stores}</div>` + PLAN.shopping.map(g => `
+    <div class="aisle"><h3>${esc(g.aisle)}</h3>
+      ${g.items.map(it => `<label class="item ${checked[it.id] ? 'done' : ''}">
+        <input type="checkbox" data-i="${it.id}" ${checked[it.id] ? 'checked' : ''}>
+        <div class="t">${esc(it.name)} — ${fmtQ(it.need, it.unit)}
+          <small>${it.estimated ? '<span class="est">εκτίμηση τιμής · δεν βρέθηκε προϊόν</span>' :
+            `${it.packs}× ${esc(it.product)}${s.store === 'cheapest' ? ' · ' + storeName(it.store) : ''}`}</small></div>
+        <div class="c">${eur(it.cost)}</div></label>`).join('')}
+    </div>`).join('');
+  $('#shop').querySelectorAll('input[data-i]').forEach(c => c.onchange = () => {
+    checked[c.dataset.i] = c.checked; c.closest('.item').classList.toggle('done', c.checked);
+    try { localStorage.setItem(key, JSON.stringify(checked)); } catch (e) {}
+  });
+}
+
+async function openRecipe(id, portions) {
+  const r = await api(`/recipe/${id}?portions=${portions}`);
+  const scaled = `<ul>${r.ingredients.map(i => `<li>${esc(i.name)} — ${esc(i.qty)}${i.pantry ? ' <span class="muted">(ντουλάπι)</span>' : ''}</li>`).join('')}</ul>`;
+  const ingHtml = r.original
+    ? `<h4>Υλικά <span class="muted" style="font-weight:400">(πρωτότυπη συνταγή, ${r.original.servings} μερίδες)</span></h4>
+       <ul>${r.original.lines.map(l => `<li>${esc(l)}</li>`).join('')}</ul>
+       <details><summary>Ποσότητες για ${r.persons} μερίδες (όπως κοστολογήθηκαν)</summary>${scaled}</details>`
+    : `<h4>Υλικά</h4>${scaled}`;
+  $('#dlgc').innerHTML = `<h2>${esc(r.name)}</h2><div class="muted">${r.time}′ · ${r.persons} μερίδες</div>
+    ${ingHtml}
+    <h4>Εκτέλεση</h4><ol>${r.steps.map(s => `<li>${esc(s)}</li>`).join('')}</ol>
+    ${r.source ? `<p class="muted" style="font-size:13px">Πηγή: <a href="${esc(r.source)}" target="_blank" rel="noopener">${esc(r.source_name || r.source)}</a></p>` : ''}
+    <button onclick="dlg.close()" style="width:100%">Κλείσιμο</button>`;
+  $('#dlg').showModal();
+  if (document.activeElement) document.activeElement.blur();
+  $('#dlgc').scrollTop = 0;
+}
+$('#dlg').onclick = e => { if (e.target.id === 'dlg') e.target.close(); };
+
+async function generate(settings) {
+  const btns = document.querySelectorAll('#go,#regen'); btns.forEach(b => b.disabled = true);
+  toast('Υπολογισμός πλάνου & τιμών…');
+  try { PLAN = await api('/plan', settings); fillForm(PLAN.settings); render(); show('week'); toast('Έτοιμο'); }
+  catch (e) { toast(e.message); }
+  finally { btns.forEach(b => b.disabled = false); }
+}
+async function swap(day, meal, btn) {
+  btn.disabled = true;
+  try { PLAN = await api('/swap', {day, meal}); render(); } catch (e) { toast(e.message); btn.disabled = false; }
+}
+$('#f').onsubmit = e => { e.preventDefault(); generate(readForm()); };
+$('#refresh').onclick = async e => {
+  e.target.disabled = true; toast('Ανανέωση τιμών…');
+  try { const p = await api('/refresh-prices', {}); if (p) { PLAN = p; render(); } toast('Οι τιμές ανανεώθηκαν'); }
+  catch (err) { toast(err.message); } finally { e.target.disabled = false; }
+};
+
+(async () => {
+  META = await api('/meta'); buildForm();
+  if (!META.connected) $('#sub').textContent = 'Δεν έχει συνδεθεί search τιμών — χρησιμοποιούνται εκτιμήσεις';
+  PLAN = await api('/plan');
+  if (PLAN) fillForm(PLAN.settings);
+  render();
+})();
+</script>
+</body>
+</html>

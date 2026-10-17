@@ -5,3 +5,6 @@ __pycache__
 tests
 data
 favourites.json
+meal_planner/data/*
+!meal_planner/data/ingredients.json
+!meal_planner/data/recipes.json

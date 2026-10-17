@@ -4,4 +4,10 @@ __pycache__/
 .pytest_cache/
 favourites.json
 favourites.json.tmp
-data/
+/data/
+# Meal planner prices, plan and imported recipes when MEAL_PLANNER_DATA is not set
+meal_planner/data/*
+!meal_planner/data/ingredients.json
+!meal_planner/data/recipes.json
+# Personal recipe importers (third-party content, not published)
+meal_planner/import_*.py

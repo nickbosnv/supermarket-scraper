@@ -5,9 +5,15 @@ from pathlib import Path
 from flask import Flask, render_template, request, jsonify
 from favourites import FavouritesError, FavouritesStore, validate_favourite
 from matching import group_products
-from supermarket_scraper import search_all_supermarkets
+from meal_planner import meal_bp, price_provider
+from supermarket_scraper import product_quantity, search_all_supermarkets, search_store
 
 MAX_PRODUCTS = 20
+# Result pages read per store for each meal planner ingredient: a plan searches ~70 ingredients,
+# and the stores list the closest matches first
+MEAL_PLANNER_PAGES = 2
+# Units of product_quantity and unit prices -> units of the meal planner
+MEAL_PLANNER_UNITS = {'kg': 'kg', 'L': 'l', 'unit': 'pcs'}
 
 app = Flask(__name__)
 # Keep results in the order the user typed the products
@@ -15,6 +21,25 @@ app.json.sort_keys = False
 logging.basicConfig(level=logging.INFO)
 
 favourites = FavouritesStore(os.environ.get('FAVOURITES_FILE', Path(__file__).with_name('favourites.json')))
+
+def meal_planner_search(store, query):
+    """Products of one store for the meal planner (format in meal_planner/pricing.py)."""
+    found = []
+    for product in search_store(store, query, max_pages=MEAL_PLANNER_PAGES):
+        quantity = product_quantity(product)
+        if quantity:
+            size, unit = quantity
+            price = product['price']
+        else:
+            # Without a size, the unit price is per kg for loose products (e.g. tomatoes) or per piece
+            size, unit, price = 1, product['unit_price_calc']['unit'][2:], product['unit_price_calc']['value']
+        if unit in MEAL_PLANNER_UNITS:
+            found.append({'name': product['name'], 'price': price, 'size': size,
+                          'size_unit': MEAL_PLANNER_UNITS[unit], 'url': product['url']})
+    return found
+
+price_provider.register(meal_planner_search)
+app.register_blueprint(meal_bp)
 
 @app.route('/')
 def index():

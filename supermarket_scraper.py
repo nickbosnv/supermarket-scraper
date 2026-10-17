@@ -580,7 +580,9 @@ class SupermarketScraper:
     unit_price_calc is the unit price shown by the store, or None if the store shows none.
     """
 
-    def __init__(self):
+    def __init__(self, max_pages: Optional[int] = None):
+        # Result pages read per search, MAX_PAGES if not set
+        self.max_pages = max_pages
         self.session = requests.Session()
         self.session.headers.update({
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
@@ -606,11 +608,12 @@ class SupermarketScraper:
         fetch_page(page) returns the products on that page and the total number of pages.
         The first page is fetched alone to learn the page count, the rest in parallel.
         """
+        max_pages = self.max_pages or MAX_PAGES
         products, page_count = fetch_page(first_page)
-        if page_count > MAX_PAGES:
-            logger.warning("Search has %d result pages, only the first %d are read", page_count, MAX_PAGES)
+        if page_count > max_pages:
+            logger.info("Search has %d result pages, only the first %d are read", page_count, max_pages)
 
-        other_pages = range(first_page + 1, first_page + min(page_count, MAX_PAGES))
+        other_pages = range(first_page + 1, first_page + min(page_count, max_pages))
         with ThreadPoolExecutor(max_workers=PAGE_WORKERS) as executor:
             for page_products, _ in executor.map(fetch_page, other_pages):
                 products.extend(page_products)
@@ -671,6 +674,28 @@ class SupermarketScraper:
         return self._search_all_pages(partial(self._mymarket_page, product_name), first_page=1)
 
 
+def _store_searches(scraper: SupermarketScraper) -> Dict[str, Callable[[str], List[Dict]]]:
+    return {
+        'ab': scraper.search_ab,
+        'sklavenitis': scraper.search_sklavenitis,
+        'mymarket': scraper.search_mymarket,
+    }
+
+
+def search_store(store: str, product_name: str, max_pages: Optional[int] = None) -> List[Dict]:
+    """
+    Search one supermarket ('ab', 'sklavenitis' or 'mymarket') for a product.
+
+    Same as search_all_supermarkets for a single store: the relevant products with unit prices,
+    best value first. max_pages limits the result pages read (the stores list the closest matches first).
+    """
+    search = _store_searches(SupermarketScraper(max_pages))[store]
+    products = filter_relevant(product_name, {store: search(product_name)})[store]
+    for product in products:
+        product['unit_price_calc'] = unit_price(product)
+    return sort_by_value(products)
+
+
 def search_all_supermarkets(product_name: str) -> Dict:
     """
     Search all supermarkets for a product and return the relevant products per store.
@@ -691,12 +716,7 @@ def search_all_supermarkets(product_name: str) -> Dict:
         }
         Each product dict includes a unit price in 'unit_price_calc'.
     """
-    scraper = SupermarketScraper()
-    searches = {
-        'ab': scraper.search_ab,
-        'sklavenitis': scraper.search_sklavenitis,
-        'mymarket': scraper.search_mymarket,
-    }
+    searches = _store_searches(SupermarketScraper())
 
     with ThreadPoolExecutor(max_workers=len(searches)) as executor:
         futures = {key: executor.submit(search, product_name) for key, search in searches.items()}
