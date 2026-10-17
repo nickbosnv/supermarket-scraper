@@ -4,6 +4,10 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Πλάνο Γευμάτων - Supermarket Price Finder</title>
+<link rel="icon" href="{{ url_for('static', filename='favicon.ico') }}" sizes="any">
+<link rel="apple-touch-icon" href="{{ url_for('static', filename='img/apple-touch-icon.png') }}">
+<link rel="manifest" href="{{ url_for('static', filename='manifest.json') }}">
+<meta name="theme-color" content="#667eea">
 <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 <style>
 /* Meal planner pieces, built on the shared style.css (palette #667eea / #764ba2, white cards) */
@@ -158,6 +162,7 @@ dialog::backdrop{background:rgba(40,30,80,0.55)}
 <body>
 <div class="container">
   <header>
+    <a href="/" class="brand"><img src="{{ url_for('static', filename='img/logo.png') }}" alt="Price Finder" width="800" height="180"></a>
     <h1>🍽️ Πλάνο Γευμάτων</h1>
     <p class="subtitle" id="sub">Εβδομαδιαίο πρόγραμμα με τιμές από τα supermarkets</p>
     <nav class="nav">

@@ -337,6 +337,11 @@ price; the first `MAX_GROUPS` (10) are returned. Products sold in one store only
 - Responsive design (mobile-friendly)
 - Cheapest supermarket highlighted in green
 
+### `branding/` - Logo and Icons
+- `logo-source.png` and `icon-source.png` are the original images
+- `make_icons.py` builds `static/img/logo.png`, `static/favicon.ico`, the app icons and the apple touch icon from them (`pip install Pillow`, then `python branding/make_icons.py`)
+- `static/manifest.json` lets phones add the app to the home screen with its icon
+
 ## How to Modify / Extend
 
 ### Add a New Supermarket

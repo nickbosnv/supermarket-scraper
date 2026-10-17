@@ -2,7 +2,7 @@ import logging
 import os
 from pathlib import Path
 
-from flask import Flask, render_template, request, jsonify
+from flask import Flask, render_template, request, jsonify, send_from_directory
 from favourites import FavouritesError, FavouritesStore, validate_favourite
 from matching import group_products
 from meal_planner import meal_bp, price_provider
@@ -44,6 +44,11 @@ app.register_blueprint(meal_bp)
 @app.route('/')
 def index():
     return render_template('index.html')
+
+@app.route('/favicon.ico')
+def favicon():
+    # Browsers ask for /favicon.ico on pages without an icon link (e.g. JSON responses)
+    return send_from_directory(app.static_folder, 'favicon.ico')
 
 @app.route('/search', methods=['POST'])
 def search():

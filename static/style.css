@@ -29,6 +29,40 @@ header h1 {
     text-shadow: 2px 2px 4px rgba(0,0,0,0.2);
 }
 
+/* Logo on a white card: its purple would disappear on the purple page */
+.brand {
+    display: inline-block;
+    background: white;
+    border-radius: 16px;
+    padding: 10px 22px;
+    margin-bottom: 18px;
+    line-height: 0;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.15);
+    transition: transform 0.2s;
+}
+
+.brand:hover {
+    transform: translateY(-2px);
+}
+
+.brand img {
+    height: 48px;
+    width: auto;
+}
+
+header h1.brand-title {
+    margin-bottom: 8px;
+}
+
+.brand-title .brand {
+    padding: 14px 28px;
+    margin-bottom: 0;
+}
+
+.brand-title .brand img {
+    height: 72px;
+}
+
 .subtitle {
     font-size: 1.2em;
     opacity: 0.9;
@@ -510,6 +544,14 @@ header h1 {
 @media (max-width: 768px) {
     header h1 {
         font-size: 1.8em;
+    }
+
+    .brand img {
+        height: 36px;
+    }
+
+    .brand-title .brand img {
+        height: 52px;
     }
 
     .input-group {
