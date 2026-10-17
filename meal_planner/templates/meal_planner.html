@@ -50,8 +50,13 @@
 .btn-swap:disabled{opacity:0.5;cursor:wait}
 
 .store-totals{display:flex;flex-wrap:wrap;gap:8px}
-.store-total{background:#f5f7ff;border:1px solid #d0d4f0;border-radius:20px;padding:6px 14px;color:#333;font-size:0.95em}
+.store-total{background:#f5f7ff;border:1px solid #d0d4f0;border-radius:20px;padding:6px 14px;color:#333;font:inherit;font-size:0.95em;cursor:pointer;transition:border-color 0.2s}
+.store-total:hover{border-color:#667eea}
 .store-total b{color:#667eea;font-variant-numeric:tabular-nums}
+.store-total.on{background:linear-gradient(135deg,#667eea 0%,#764ba2 100%);border-color:transparent;color:white}
+.store-total.on b{color:white}
+.store-note{flex-basis:100%;color:#666;font-size:0.9em;margin-top:4px}
+.aisle[hidden],.item[hidden]{display:none}
 .aisle h2{font-size:1.2em;color:#333;border-bottom:3px solid #667eea;padding-bottom:10px;margin-bottom:5px}
 .item{display:flex;gap:12px;align-items:flex-start;padding:12px 0;border-bottom:1px solid #eee;cursor:pointer}
 .item:last-child{border-bottom:none;padding-bottom:0}
@@ -323,10 +328,11 @@ function render() {
 
   const key = 'mp-check-' + PLAN.generated_at;
   let checked = {}; try { checked = JSON.parse(localStorage.getItem(key) || '{}'); } catch (e) {}
-  const stores = Object.entries(PLAN.by_store).map(([k, v]) => `<span class="store-total">${storeName(k)}: <b>${eur(v)}</b></span>`).join('');
-  $('#shop').innerHTML = `<div class="card store-totals">${stores}</div>` + PLAN.shopping.map(g => `
+  const stores = Object.entries(PLAN.by_store).map(([k, v]) =>
+    `<button class="store-total" data-s="${k}" aria-pressed="false">${storeName(k)}: <b>${eur(v)}</b></button>`).join('');
+  $('#shop').innerHTML = `<div class="card store-totals">${stores}<div class="store-note" id="snote"></div></div>` + PLAN.shopping.map(g => `
     <div class="card aisle"><h2>${esc(g.aisle)}</h2>
-      ${g.items.map(it => `<label class="item ${checked[it.id] ? 'done' : ''}">
+      ${g.items.map(it => `<label class="item ${checked[it.id] ? 'done' : ''}" data-s="${it.store || 'estimate'}">
         <input type="checkbox" data-i="${it.id}" ${checked[it.id] ? 'checked' : ''}>
         <div class="item-text">${esc(it.name)} — ${fmtQ(it.need, it.unit)}
           <small>${it.estimated ? '<span class="est-pill">εκτίμηση τιμής · δεν βρέθηκε προϊόν</span>' :
@@ -338,6 +344,31 @@ function render() {
     checked[c.dataset.i] = c.checked; c.closest('.item').classList.toggle('done', c.checked);
     try { localStorage.setItem(key, JSON.stringify(checked)); } catch (e) {}
   });
+  $('#shop').querySelectorAll('.store-total').forEach(b => b.onclick = () => {
+    SHOP_STORE = SHOP_STORE === b.dataset.s ? null : b.dataset.s;
+    filterShop();
+  });
+  if (!PLAN.by_store[SHOP_STORE]) SHOP_STORE = null;
+  filterShop();
+}
+
+// The store whose products the shopping list shows (null: all). 'estimate' = products not found in any store.
+let SHOP_STORE = null;
+function filterShop() {
+  const items = [...$('#shop').querySelectorAll('.item')];
+  items.forEach(el => el.hidden = SHOP_STORE !== null && el.dataset.s !== SHOP_STORE);
+  $('#shop').querySelectorAll('.aisle').forEach(a => a.hidden = !a.querySelector('.item:not([hidden])'));
+  $('#shop').querySelectorAll('.store-total').forEach(b => {
+    b.classList.toggle('on', b.dataset.s === SHOP_STORE);
+    b.setAttribute('aria-pressed', b.dataset.s === SHOP_STORE);
+  });
+  const n = items.filter(el => !el.hidden).length;
+  const several = Object.keys(PLAN.by_store).length > 1;
+  $('#snote').textContent = SHOP_STORE === 'estimate'
+    ? `${n} προϊόντα που δεν βρέθηκαν σε κανένα supermarket — το ποσό είναι εκτίμηση. Πάτα ξανά για όλη τη λίστα.`
+    : SHOP_STORE ? `${n} προϊόντα για ${storeName(SHOP_STORE)}. Πάτα ξανά για όλη τη λίστα.`
+    : several ? `Πόσα θα πληρώσεις σε κάθε supermarket — μαζί κάνουν το σύνολο της εβδομάδας (${eur(PLAN.total)}). Πάτα ένα για να δεις τι παίρνεις από εκεί.`
+    : `Το σύνολο της εβδομάδας. Πάτα το για να δεις μόνο αυτά τα προϊόντα.`;
 }
 
 function openDialog(html) {
