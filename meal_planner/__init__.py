@@ -100,6 +100,35 @@ def swap():
     return jsonify(plan)
 
 
+@meal_bp.get("/api/alternatives")
+def alternatives():
+    """The recipes that can replace a meal (?day=0..6&meal=...), best first."""
+    plan = _load_plan()
+    if not plan:
+        return _err("Δεν υπάρχει πλάνο.")
+    day = request.args.get("day", type=int)
+    try:
+        return jsonify(planner.alternatives(plan, day, request.args.get("meal", "")))
+    except ValueError as e:
+        return _err(str(e))
+
+
+@meal_bp.post("/api/choose")
+def choose():
+    """Put the chosen recipe ({day, meal, recipe_id}) in a meal."""
+    body = request.get_json(force=True) or {}
+    with _lock:
+        plan = _load_plan()
+        if not plan:
+            return _err("Δεν υπάρχει πλάνο.")
+        try:
+            plan = planner.choose(plan, int(body["day"]), body["meal"], body["recipe_id"])
+        except (KeyError, TypeError, ValueError) as e:
+            return _err(str(e))
+        _save_plan(plan)
+    return jsonify(plan)
+
+
 @meal_bp.get("/api/recipe/<rid>")
 def recipe(rid):
     if rid not in planner.recipes:

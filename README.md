@@ -120,6 +120,11 @@ cheapest store per product. The page is `meal_planner/templates/meal_planner.htm
 - **Plan** (`planner.py`): 300 random plans, then local search (changing one recipe at a time) on the best 3.
   The goal: within the budget, less waste of package leftovers, and variety (the same main protein not twice in a
   row and not more than twice a week). With "leftovers" on, dinner is cooked twice over and becomes the next day's lunch
+- **Changing a meal**: ↻ opens every recipe that fits the meal and the plan's settings (`alternatives()`), with what
+  the week would cost with it: first those within the budget (less waste, more variety), then the cheapest. The list
+  can be searched by recipe or ingredient name (without accents), and each recipe can be read before choosing it
+  (`choose()`). Choosing a dinner that is also the next day's lunch changes both. "🎲 Τυχαία" picks the best of 12
+  random recipes that are not in the plan yet (`swap()`)
 - **Prices** (`pricing.py`): for each ingredient, the package with the lowest **total** cost for the quantity needed
   (not just the best €/kg). Only the first `MEAL_PLANNER_PAGES` (2) result pages are read, as a plan searches about 70
   ingredients. Prices are cached for 24 hours in `price_cache.json`; "Ανανέωση τιμών" searches again.
@@ -127,8 +132,10 @@ cheapest store per product. The page is `meal_planner/templates/meal_planner.htm
 - Pantry items (oil, spices, vinegar, sugar) are not costed unless the user asks
 - **Data**: `data/ingredients.json` and `data/recipes.json` come with the code. The price cache, the current plan
   and imported recipes go to `MEAL_PLANNER_DATA`
-- **API**: `GET /meals/api/meta`, `GET|POST /meals/api/plan` (new plan from the settings), `POST /meals/api/swap`
-  (`{day, meal}`, another recipe for one meal), `GET /meals/api/recipe/<id>?portions=N`,
+- **API**: `GET /meals/api/meta`, `GET|POST /meals/api/plan` (new plan from the settings),
+  `GET /meals/api/alternatives?day=0..6&meal=...` (the recipes for one meal, best first),
+  `POST /meals/api/choose` (`{day, meal, recipe_id}`), `POST /meals/api/swap` (`{day, meal}`, a random better recipe),
+  `GET /meals/api/recipe/<id>?portions=N`,
   `POST /meals/api/refresh-prices`, `POST /meals/api/reload-recipes`
 
 **Ingredients** (`data/ingredients.json`): `query` is what is searched for in the stores (a list when the stores
@@ -389,7 +396,7 @@ pytest --live                  # also run tests against the real supermarket web
 - `tests/test_matching.py` - the same product in every store: brand, size, name similarity, variants, ordering
 - `tests/test_app.py` - Flask routes, input validation and favourites
 - `tests/test_meal_planner.py` - meal planner: products for the planner from the scrapers, plans within the budget,
-  swapping a meal, the routes
+  choosing another recipe for a meal, the routes
 - `tests/test_live.py` - real requests to each supermarket; fails when a site changes its URL, API or markup.
   Also checks that all pages are read, that e.g. "φέτα" returns feta and not frozen pies, and that
   "DETTOL Απολυμαντικο Ρούχων" finds the same 2,5lt product in all 3 stores

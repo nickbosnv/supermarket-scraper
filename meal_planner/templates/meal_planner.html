@@ -87,6 +87,30 @@ dialog::backdrop{background:rgba(40,30,80,0.55)}
 .dlg .btn-check-favourites{width:100%;margin-top:20px}
 .muted{color:#888}
 
+.pick-note{color:#666;font-size:0.9em}
+.pick-tools{display:flex;gap:10px;margin:15px 0 8px}
+.pick-search{flex:1;min-width:0;padding:12px;border:2px solid #e0e0e0;border-radius:8px;font:inherit;color:#333;transition:border-color 0.3s}
+.pick-search:focus{outline:none;border-color:#667eea}
+.pick-tools .btn-check-favourites{flex-shrink:0;width:auto;margin:0}
+.pick-count{color:#888;font-size:0.85em;margin-bottom:6px}
+.pick-list{max-height:50vh;overflow:auto;padding-right:2px}
+.pick-item{display:flex;gap:6px;align-items:stretch}
+.pick-item[hidden]{display:none}
+.pick-item .choice{flex:1;min-width:0;display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;column-gap:12px;text-align:left}
+.pick-main{min-width:0;color:#333}
+.pick-main small{display:block;color:#888;font-size:0.85em;font-weight:400;margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pick-cost{text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums;font-weight:600;color:#666}
+.pick-search::placeholder{color:#aaa}
+.pick-cost small{display:block;font-weight:400;color:#999;font-size:0.8em}
+.pick-cost.cheaper{color:#2e7d32}
+.pick-cost.dearer{color:#c62828}
+.btn-view{flex-shrink:0;width:42px;background:white;border:1px solid #e0e0e0;border-radius:6px;font-size:1.1em;cursor:pointer}
+.btn-view:hover{border-color:#667eea}
+.tag{display:inline-block;font-size:0.85em;font-weight:600;border-radius:10px;padding:0 8px;margin-right:4px;background:#eceefb;color:#667eea}
+.tag.warn{background:#fff8e1;color:#8a6500}
+.tag.over{background:#fdecea;color:#c62828}
+.dlg .back{background:none;border:none;color:#667eea;font:inherit;font-weight:600;cursor:pointer;padding:0;margin-bottom:10px}
+
 .toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:linear-gradient(135deg,#667eea 0%,#764ba2 100%);color:white;font-weight:600;padding:12px 20px;border-radius:8px;box-shadow:0 8px 16px rgba(102,126,234,0.4);display:none;z-index:9;max-width:calc(100% - 32px)}
 
 @media (max-width: 768px) {
@@ -247,12 +271,12 @@ function render() {
             <span class="meal-title">${esc(x.name)}</span>
             <span class="meal-meta">${x.leftover ? 'Από το χθεσινό βραδινό' : `${x.time}′${x.cook_portions > s.persons ? ` · μαγείρεψε ${x.cook_portions} μερίδες` : ''}`}</span>
           </button>
-          <button class="btn-swap" title="Άλλη συνταγή" aria-label="Άλλη συνταγή" data-d="${di}" data-m="${m}">↻</button>
+          <button class="btn-swap" title="Διάλεξε άλλη συνταγή" aria-label="Διάλεξε άλλη συνταγή" data-d="${di}" data-m="${m}">↻</button>
         </div>`;
       }).join('')}
     </div>`).join('');
   $('#days').querySelectorAll('.meal-name').forEach(el => el.onclick = () => openRecipe(el.dataset.r, el.dataset.p));
-  $('#days').querySelectorAll('button[data-d]').forEach(b => b.onclick = () => swap(+b.dataset.d, b.dataset.m, b));
+  $('#days').querySelectorAll('button[data-d]').forEach(b => b.onclick = () => openPicker(+b.dataset.d, b.dataset.m, b));
 
   const key = 'mp-check-' + PLAN.generated_at;
   let checked = {}; try { checked = JSON.parse(localStorage.getItem(key) || '{}'); } catch (e) {}
@@ -272,7 +296,15 @@ function render() {
   });
 }
 
-async function openRecipe(id, portions) {
+function openDialog(html) {
+  $('#dlgc').innerHTML = html;
+  if (!$('#dlg').open) $('#dlg').showModal();
+  if (document.activeElement) document.activeElement.blur();
+  $('#dlgc').scrollTop = 0;
+}
+
+// back: shown as "← Πίσω στη λίστα" when the recipe is opened from the recipe picker
+async function openRecipe(id, portions, back) {
   const r = await api(`/recipe/${id}?portions=${portions}`);
   const scaled = `<ul>${r.ingredients.map(i => `<li>${esc(i.name)} — ${esc(i.qty)}${i.pantry ? ' <span class="muted">(ντουλάπι)</span>' : ''}</li>`).join('')}</ul>`;
   const ingHtml = r.original
@@ -280,16 +312,88 @@ async function openRecipe(id, portions) {
        <ul>${r.original.lines.map(l => `<li>${esc(l)}</li>`).join('')}</ul>
        <details><summary>Ποσότητες για ${r.persons} μερίδες (όπως κοστολογήθηκαν)</summary>${scaled}</details>`
     : `<h4>Υλικά</h4>${scaled}`;
-  $('#dlgc').innerHTML = `<h2>${esc(r.name)}</h2><div class="muted">${r.time}′ · ${r.persons} μερίδες</div>
+  openDialog(`${back ? '<button class="back" id="back">← Πίσω στη λίστα</button>' : ''}
+    <h2>${esc(r.name)}</h2><div class="muted">${r.time}′ · ${r.persons} μερίδες</div>
     ${ingHtml}
     <h4>Εκτέλεση</h4><ol>${r.steps.map(s => `<li>${esc(s)}</li>`).join('')}</ol>
     ${r.source ? `<p class="muted" style="font-size:0.9em;margin-top:12px">Πηγή: <a href="${esc(r.source)}" target="_blank" rel="noopener">${esc(r.source_name || r.source)}</a></p>` : ''}
-    <button class="btn-check-favourites" onclick="dlg.close()">Κλείσιμο</button>`;
-  $('#dlg').showModal();
-  if (document.activeElement) document.activeElement.blur();
-  $('#dlgc').scrollTop = 0;
+    <button class="btn-check-favourites" onclick="dlg.close()">Κλείσιμο</button>`);
+  if (back) $('#back').onclick = back;
 }
 $('#dlg').onclick = e => { if (e.target.id === 'dlg') e.target.close(); };
+
+// Lowercase without accents, final ς as σ, so that "μπιφτεκια" finds "Μπιφτέκια"
+const norm = s => String(s ?? '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/ς/g, 'σ');
+const slotName = ([d, m]) => `${META.meals[m]} ${PLAN.days[d].name}`;
+
+async function openPicker(day, meal, btn) {
+  btn.disabled = true;
+  const title = `<h2>${esc(META.meals[meal])} · ${esc(PLAN.days[day].name)}</h2>`;
+  openDialog(`${title}<div class="pick-count"><div class="spinner"></div>Υπολογίζω πόσο κοστίζει κάθε συνταγή…</div>`);
+  let alt;
+  try { alt = await api(`/alternatives?day=${day}&meal=${meal}`); }
+  catch (e) { $('#dlg').close(); toast(e.message); return; }
+  finally { btn.disabled = false; }
+  renderPicker(day, meal, title, alt, '');
+}
+
+function renderPicker(day, meal, title, alt, query) {
+  const others = alt.slots.filter(([d, m]) => d !== day || m !== meal);
+  const portions = PLAN.settings.persons * alt.slots.length;
+  const cost = o => {
+    const diff = Math.round((o.total - alt.total) * 100) / 100;
+    const cls = !o.within_budget ? 'dearer' : diff < 0 ? 'cheaper' : '';
+    const label = o.current ? 'τώρα' : diff === 0 ? 'ίδιο κόστος' : `${diff > 0 ? '+' : '−'}${eur(Math.abs(diff))}`;
+    return `<span class="pick-cost ${cls}">${label}<small>σύνολο ${eur(o.total)}</small></span>`;
+  };
+  const tags = o => [
+    o.current ? '<span class="tag">τωρινή</span>' : '',
+    o.in_plan ? '<span class="tag warn">ήδη στο πλάνο</span>' : '',
+    o.within_budget ? '' : '<span class="tag over">εκτός budget</span>',
+  ].join('');
+  openDialog(`${title}
+    ${others.length ? `<div class="pick-note">Μαγειρεύεται και για: ${others.map(slotName).join(', ')}</div>` : ''}
+    <div class="pick-note">Πρώτα όσες χωράνε στο budget, μετά οι φθηνότερες. Το ποσό είναι η αλλαγή στο σύνολο της εβδομάδας.</div>
+    <div class="pick-tools">
+      <input type="search" class="pick-search" id="pickq" placeholder="Αναζήτηση…" aria-label="Αναζήτηση συνταγής ή υλικού" autocomplete="off">
+      <button class="btn-check-favourites" id="pickrand" title="Τυχαία από τις καλύτερες">🎲 Τυχαία</button>
+    </div>
+    <div class="pick-count" id="pickn"></div>
+    <div class="choice-list pick-list">
+      ${alt.options.map((o, i) => `<div class="pick-item" data-q="${esc(norm(o.name + ' ' + o.ingredients.join(' ')))}">
+        <button class="choice ${o.current ? 'choice-selected' : ''}" data-i="${i}">
+          <span class="pick-main">${tags(o)}${esc(o.name)}<small>${o.time}′ · ${esc(o.ingredients.join(', '))}</small></span>
+          ${cost(o)}
+        </button>
+        <button class="btn-view" data-v="${i}" title="Δες τη συνταγή" aria-label="Δες τη συνταγή">📖</button>
+      </div>`).join('')}
+    </div>
+    <button class="btn-check-favourites" onclick="dlg.close()">Κλείσιμο</button>`);
+
+  const input = $('#pickq'), items = [...document.querySelectorAll('.pick-item')];
+  const filter = () => {
+    const words = norm(input.value).split(/\s+/).filter(Boolean);
+    let n = 0;
+    items.forEach(el => { el.hidden = !words.every(w => el.dataset.q.includes(w)); n += !el.hidden; });
+    $('#pickn').textContent = words.length ? `${n} από ${items.length} συνταγές` : `${items.length} συνταγές`;
+  };
+  input.value = query;
+  input.oninput = filter;
+  filter();
+  $('#pickrand').onclick = async e => { e.currentTarget.disabled = true; await swap(day, meal); $('#dlg').close(); };
+  document.querySelectorAll('.pick-item .choice').forEach(b => b.onclick = () => choose(day, meal, alt.options[+b.dataset.i], b));
+  document.querySelectorAll('.pick-item .btn-view').forEach(b => b.onclick = () =>
+    openRecipe(alt.options[+b.dataset.v].id, portions, () => renderPicker(day, meal, title, alt, input.value)));
+}
+
+async function choose(day, meal, option, btn) {
+  if (option.current) { $('#dlg').close(); return; }
+  btn.disabled = true;
+  try {
+    PLAN = await api('/choose', {day, meal, recipe_id: option.id});
+    render(); $('#dlg').close(); toast(`Άλλαξε σε: ${option.name}`);
+  } catch (e) { toast(e.message); btn.disabled = false; }
+}
 
 function loading(on) {
   $('#loading').classList.toggle('hidden', !on);
@@ -303,9 +407,9 @@ async function generate(settings) {
   catch (e) { toast(e.message); }
   finally { loading(false); btns.forEach(b => b.disabled = false); }
 }
-async function swap(day, meal, btn) {
-  btn.disabled = true;
-  try { PLAN = await api('/swap', {day, meal}); render(); } catch (e) { toast(e.message); btn.disabled = false; }
+async function swap(day, meal) {
+  try { PLAN = await api('/swap', {day, meal}); render(); toast(`Άλλαξε σε: ${PLAN.days[day].meals[meal].name}`); }
+  catch (e) { toast(e.message); }
 }
 $('#f').onsubmit = e => { e.preventDefault(); generate(readForm()); };
 $('#refresh').onclick = async e => {

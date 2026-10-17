@@ -193,6 +193,44 @@ def test_swap_changes_one_meal(planner):
     assert swapped['days'][2]['meals']['dinner']['recipe_id'] != before
 
 
+def test_alternatives_list_every_fitting_recipe(planner):
+    plan = planner.generate({'meals': ['breakfast', 'lunch', 'dinner'], 'leftovers': True}, seed=1)
+    current = plan['days'][0]['meals']['dinner']['recipe_id']
+
+    alternatives = planner.alternatives(plan, 0, 'dinner')
+
+    options = alternatives['options']
+    assert {o['id'] for o in options} == set(planner.eligible(plan['settings'], 'dinner'))
+    # Monday's dinner is also Tuesday's lunch
+    assert alternatives['slots'] == [[0, 'dinner'], [1, 'lunch']]
+    assert [o['id'] for o in options if o['current']] == [current]
+    assert next(o for o in options if o['current'])['total'] == plan['total']
+    in_plan = {c['recipe_id'] for c in plan['cooks']} - {current}
+    assert {o['id'] for o in options if o['in_plan']} == in_plan & {o['id'] for o in options}
+    # Within the budget first
+    within = [o['within_budget'] for o in options]
+    assert within == sorted(within, reverse=True)
+
+
+def test_choose_puts_recipe_in_both_leftover_meals(planner):
+    plan = planner.generate({'meals': ['lunch', 'dinner'], 'leftovers': True}, seed=1)
+    option = next(o for o in planner.alternatives(plan, 0, 'dinner')['options'] if not o['current'])
+
+    chosen = planner.choose(plan, 0, 'dinner', option['id'])
+
+    assert chosen['days'][0]['meals']['dinner']['recipe_id'] == option['id']
+    assert chosen['days'][1]['meals']['lunch']['recipe_id'] == option['id']
+    assert chosen['total'] == option['total']
+
+
+def test_choose_rejects_recipe_for_another_meal(planner):
+    plan = planner.generate({'meals': ['breakfast', 'dinner']}, seed=1)
+    breakfast = plan['days'][0]['meals']['breakfast']['recipe_id']
+
+    with pytest.raises(ValueError):
+        planner.choose(plan, 0, 'dinner', breakfast)
+
+
 def test_settings_are_cleaned(planner):
     settings = planner.clean_settings({'persons': 50, 'budget': -5, 'store': 'lidl', 'meals': [], 'exclude': ['nope']})
 
@@ -244,6 +282,34 @@ def test_plan_routes(client):
     recipe_id = plan['days'][0]['meals']['dinner']['recipe_id']
     recipe = client.get(f'/meals/api/recipe/{recipe_id}?portions=3').get_json()
     assert recipe['persons'] == 3 and recipe['steps']
+
+
+def test_alternatives_and_choose_routes(client):
+    client.post('/meals/api/plan', json={'meals': ['dinner'], 'leftovers': False})
+
+    alternatives = client.get('/meals/api/alternatives?day=3&meal=dinner').get_json()
+    option = next(o for o in alternatives['options'] if not o['current'])
+    plan = client.post('/meals/api/choose', json={'day': 3, 'meal': 'dinner', 'recipe_id': option['id']}).get_json()
+
+    assert plan['days'][3]['meals']['dinner']['recipe_id'] == option['id']
+    assert client.get('/meals/api/plan').get_json()['days'][3]['meals']['dinner']['recipe_id'] == option['id']
+
+
+def test_alternatives_for_missing_meal(client):
+    client.post('/meals/api/plan', json={'meals': ['dinner']})
+
+    response = client.get('/meals/api/alternatives?day=0&meal=breakfast')
+
+    assert response.status_code == 400
+    assert response.get_json()['error'] == 'Δεν υπάρχει γεύμα σε αυτή τη θέση.'
+
+
+def test_choose_unknown_recipe(client):
+    client.post('/meals/api/plan', json={'meals': ['dinner']})
+
+    response = client.post('/meals/api/choose', json={'day': 0, 'meal': 'dinner', 'recipe_id': 'nope'})
+
+    assert response.status_code == 400
 
 
 def test_swap_without_plan(client):

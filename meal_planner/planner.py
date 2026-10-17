@@ -177,10 +177,7 @@ class Planner:
             if not pools[kind]:
                 what = "πρωινά" if kind == "breakfast" else "κυρίως γεύματα"
                 raise ValueError(f"Δεν βρέθηκαν {what} με αυτά τα φίλτρα (διατροφή/πηγή/εξαιρέσεις).")
-        used = {i for k in pools for rid in pools[k] for i in self.recipes[rid]["ingredients"]}
-        if not s["include_pantry"]:
-            used = {i for i in used if not self.ingredients[i].get("pantry")}
-        self.provider.warm(self.ingredients, sorted(used), self.stores(s))
+        self._warm(pools["breakfast"] + pools["main"], s)
 
         results = []
         for _ in range(SAMPLES):
@@ -194,6 +191,13 @@ class Planner:
         ok = [r for r in improved if r[2]["total"] <= s["budget"]]
         pick = rng.choice(ok) if ok else improved[0]
         return self._build(s, pick[1], pick[2])
+
+    def _warm(self, recipe_ids, s):
+        """Search the prices of the costed ingredients of these recipes that are not cached yet."""
+        used = {i for rid in recipe_ids for i in self.recipes[rid]["ingredients"]}
+        if not s["include_pantry"]:
+            used = {i for i in used if not self.ingredients[i].get("pantry")}
+        self.provider.warm(self.ingredients, sorted(used), self.stores(s))
 
     def _objective(self, cooks, shop, s):
         over = max(0.0, shop["total"] - s["budget"])
@@ -221,31 +225,79 @@ class Planner:
                 break
         return best, cooks, shop
 
+    def _target(self, plan, day, meal):
+        """The cook that covers a meal (day, meal)."""
+        target = next((c for c in plan["cooks"] if [day, meal] in c["slots"]), None)
+        if not target:
+            raise ValueError("Δεν υπάρχει γεύμα σε αυτή τη θέση.")
+        return target
+
+    def _with_recipe(self, cooks, target, rid, s):
+        """
+        Shopping list and score if target cooks rid: within the budget first, by less waste and
+        more variety, then over the budget, cheapest first.
+        """
+        old = target["recipe_id"]
+        target["recipe_id"] = rid
+        shop = self.shopping(cooks, s)
+        over = shop["total"] > s["budget"]
+        score = (over, shop["total"] if over else shop["waste"] + self._variety_penalty(cooks))
+        target["recipe_id"] = old
+        return score, shop
+
     def swap(self, plan, day, meal, seed=None):
+        """Another recipe for a meal: the best of 12 random ones that are not in the plan yet."""
         s = plan["settings"]
         rng = random.Random(seed)
         cooks = plan["cooks"]
-        target = next((c for c in cooks if [day, meal] in c["slots"]), None)
-        if not target:
-            raise ValueError("Δεν υπάρχει γεύμα σε αυτή τη θέση.")
+        target = self._target(plan, day, meal)
         pool = self.eligible(s, meal)
         in_use = {c["recipe_id"] for c in cooks}
         cands = [r for r in pool if r not in in_use] or [r for r in pool if r != target["recipe_id"]]
         if not cands:
             raise ValueError("Δεν υπάρχει εναλλακτική συνταγή.")
         rng.shuffle(cands)
-        best = None
-        old = target["recipe_id"]
-        for rid in cands[:12]:
-            target["recipe_id"] = rid
-            shop = self.shopping(cooks, s)
-            score = (shop["total"] > s["budget"], shop["waste"] + self._variety_penalty(cooks))
-            if best is None or score < best[0]:
-                best = (score, rid, shop)
-        target["recipe_id"] = best[1]
-        if best[1] == old:
-            raise ValueError("Δεν βρέθηκε εναλλακτική.")
-        return self._build(s, cooks, best[2], plan.get("generated_at"))
+        cands = cands[:12]
+        self._warm(cands, s)
+        score, shop, rid = min(((*self._with_recipe(cooks, target, rid, s), rid) for rid in cands),
+                               key=lambda o: o[0])
+        target["recipe_id"] = rid
+        return self._build(s, cooks, shop, plan.get("generated_at"))
+
+    def alternatives(self, plan, day, meal):
+        """
+        Every recipe that fits a meal, with the plan total if it is chosen, best first
+        (within the budget, then less waste and more variety).
+        """
+        s, cooks = plan["settings"], plan["cooks"]
+        target = self._target(plan, day, meal)
+        pool = self.eligible(s, meal)
+        self._warm(pool, s)
+        in_use = {c["recipe_id"] for c in cooks}
+        options = []
+        for rid in pool:
+            score, shop = self._with_recipe(cooks, target, rid, s)
+            r = self.recipes[rid]
+            options.append((score, r["name"], {
+                "id": rid, "name": r["name"], "time": r["time"], "imported": r["imported"],
+                "current": rid == target["recipe_id"], "in_plan": rid in in_use and rid != target["recipe_id"],
+                "total": shop["total"], "within_budget": shop["total"] <= s["budget"],
+                "ingredients": [self.ingredients[i]["name"] for i in r["ingredients"]
+                                if not self.ingredients[i].get("pantry")],
+            }))
+        options.sort(key=lambda o: o[:2])
+        return {"slots": target["slots"], "total": plan["total"], "budget": s["budget"],
+                "options": [o[2] for o in options]}
+
+    def choose(self, plan, day, meal, rid):
+        """Put recipe rid in a meal (and in the next day's lunch, if it is cooked for both)."""
+        s = plan["settings"]
+        target = self._target(plan, day, meal)
+        if rid not in self.eligible(s, meal):
+            raise ValueError("Αυτή η συνταγή δεν ταιριάζει σε αυτό το γεύμα με τις ρυθμίσεις του πλάνου.")
+        self._warm([rid], s)
+        target["recipe_id"] = rid
+        return self._build(s, plan["cooks"], self.shopping(plan["cooks"], s), plan.get("generated_at"))
 
     def reprice(self, plan):
         return self._build(plan["settings"], plan["cooks"],
