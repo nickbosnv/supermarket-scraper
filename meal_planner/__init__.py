@@ -10,16 +10,18 @@ Usage:
 import json
 import os
 import threading
+from concurrent.futures import ThreadPoolExecutor
 
 from flask import Blueprint, jsonify, render_template, request
 
+from . import custom
 from .planner import DAYS, DIETS, MEALS, SOURCES, Planner
 from .pricing import STORES, PriceProvider
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 # Ingredients and built-in recipes, shipped with the code
 DATA = os.path.join(HERE, "data")
-# Price cache, current plan and imported recipes, kept across updates (e.g. the Docker volume)
+# Price cache, current plan, imported and own recipes, kept across updates (e.g. the Docker volume)
 STATE = os.environ.get("MEAL_PLANNER_DATA", DATA)
 os.makedirs(STATE, exist_ok=True)
 PLAN_FILE = os.path.join(STATE, "current_plan.json")
@@ -59,12 +61,13 @@ def page():
 
 @meal_bp.get("/api/meta")
 def meta():
-    ings = sorted(({"id": k, "name": v["name"], "pantry": v.get("pantry", False)}
+    ings = sorted(({"id": k, "name": v["name"], "unit": v["unit"], "pantry": v.get("pantry", False)}
                    for k, v in planner.ingredients.items() if not v.get("auto")), key=lambda x: x["name"])
     imported = sum(1 for r in planner.recipes.values() if r["imported"])
-    counts = {"builtin": len(planner.recipes) - imported, "imported": imported}
+    own = sum(1 for r in planner.recipes.values() if r["custom"])
+    counts = {"builtin": len(planner.recipes) - imported - own, "imported": imported, "custom": own}
     return jsonify({"stores": STORES, "diets": DIETS, "meals": MEALS, "days": DAYS, "sources": SOURCES,
-                    "source_counts": counts,
+                    "source_counts": counts, "types": custom.TYPES,
                     "ingredients": ings, "recipe_count": len(planner.recipes),
                     "connected": price_provider.search_fn is not None})
 
@@ -159,3 +162,66 @@ def reload_recipes():
     except (ValueError, OSError) as e:
         return _err(str(e))
     return jsonify({"recipes": len(planner.recipes), "ingredients": len(planner.ingredients)})
+
+
+# ---- the user's own recipes ------------------------------------------
+def _plan_cooks(rid):
+    """The current plan and the cooks of it that use recipe rid."""
+    plan = _load_plan()
+    return plan, [c for c in (plan or {}).get("cooks", []) if c["recipe_id"] == rid]
+
+
+@meal_bp.get("/api/custom")
+def custom_list():
+    return jsonify(sorted(custom.recipes(STATE), key=lambda r: r["name"]))
+
+
+@meal_bp.post("/api/custom")
+def custom_save():
+    """Create or update an own recipe (format in custom.save)."""
+    body = request.get_json(force=True) or {}
+    with _lock:
+        plan, cooks = _plan_cooks(body.get("id"))
+        if any((c["kind"] == "breakfast") != (body.get("meal") == "breakfast") for c in cooks):
+            return _err("Η συνταγή είναι στο πλάνο ως άλλο γεύμα. Άλλαξέ τη εκεί με ↻ και μετά άλλαξε το γεύμα της.")
+        try:
+            recipe = custom.save(STATE, planner, body)
+        except ValueError as e:
+            return _err(str(e))
+        planner.reload()
+        if cooks:  # the plan costs the edited recipe
+            _save_plan(planner.reprice(plan))
+    return jsonify(recipe)
+
+
+@meal_bp.post("/api/custom/<rid>/delete")
+def custom_delete(rid):
+    with _lock:
+        if _plan_cooks(rid)[1]:
+            return _err("Η συνταγή είναι στο πλάνο της εβδομάδας. Άλλαξέ τη με ↻ και μετά διάγραψέ τη.")
+        try:
+            custom.delete(STATE, rid)
+        except ValueError as e:
+            return _err(str(e))
+        planner.reload()
+    return jsonify({"ok": True})
+
+
+@meal_bp.post("/api/custom/parse")
+def custom_parse():
+    """A draft recipe from pasted text, to check and correct in the form."""
+    body = request.get_json(force=True) or {}
+    return jsonify(custom.parse(str(body.get("text") or "")[:20000], planner.ingredients))
+
+
+@meal_bp.get("/api/products")
+def products():
+    """Products for a new ingredient (?q=...&store=ab|sklavenitis|mymarket|all), to pick the right one."""
+    q = (request.args.get("q") or "").strip()
+    if not q:
+        return _err("Γράψε τι να ψάξω.")
+    store = request.args.get("store", "all")
+    stores = [store] if store in STORES else list(STORES)
+    with ThreadPoolExecutor(len(stores)) as ex:
+        found = [p for ps in ex.map(lambda s: price_provider.products(s, q), stores) for p in ps[:30]]
+    return jsonify({"products": found, "type": custom.guess_type(q)})

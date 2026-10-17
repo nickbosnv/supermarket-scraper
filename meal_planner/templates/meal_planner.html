@@ -110,6 +110,33 @@ dialog::backdrop{background:rgba(40,30,80,0.55)}
 .tag.warn{background:#fff8e1;color:#8a6500}
 .tag.over{background:#fdecea;color:#c62828}
 .dlg .back{background:none;border:none;color:#667eea;font:inherit;font-weight:600;cursor:pointer;padding:0;margin-bottom:10px}
+.left-note{display:block;color:#8a6500;margin-top:2px}
+
+.my-head{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:12px}
+.my-head h2{font-size:1.3em;color:#333}
+.my-actions{display:flex;flex-wrap:wrap;gap:10px}
+.my-actions .btn-search{padding:10px 20px;font-size:1em}
+.my-item{display:flex;align-items:center;gap:6px;padding:12px 0;border-bottom:1px solid #eee}
+.my-item:first-of-type{margin-top:10px}
+.my-item:last-child{border-bottom:none;padding-bottom:0}
+.my-item .btn-view{height:42px}
+.btn-view.danger:hover{border-color:#c62828}
+.btn-view.armed{border-color:#c62828;background:#fdecea}
+.btn-view:disabled{opacity:0.35;cursor:default}
+.ed{display:grid;gap:20px}
+.field textarea{width:100%;min-width:0;padding:12px;border:2px solid #e0e0e0;border-radius:8px;background:white;font:inherit;font-weight:400;color:#333;resize:vertical;transition:border-color 0.3s}
+.field textarea:focus{outline:none;border-color:#667eea}
+.hint{color:#888;font-weight:400;font-size:0.9em}
+.ing-rows{display:grid;gap:14px}
+.ing-row{display:grid;grid-template-columns:minmax(0,1fr) 96px 34px 42px 42px;gap:6px;align-items:center}
+.ing-row input{width:100%;min-width:0;padding:10px;border:2px solid #e0e0e0;border-radius:8px;font:inherit;font-weight:400;color:#333}
+.ing-row input:focus{outline:none;border-color:#667eea}
+.ing-row .btn-view{height:42px}
+.ing-unit{color:#666;font-weight:400;font-size:0.9em;text-align:center}
+.ing-status{grid-column:1/-1;font-weight:400;font-size:0.85em;color:#2e7d32;margin-top:-2px}
+.ing-status .warn{color:#8a6500}
+.ing-status .muted{color:#888}
+#ed-add{justify-self:start}
 
 .toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:linear-gradient(135deg,#667eea 0%,#764ba2 100%);color:white;font-weight:600;padding:12px 20px;border-radius:8px;box-shadow:0 8px 16px rgba(102,126,234,0.4);display:none;z-index:9;max-width:calc(100% - 32px)}
 
@@ -124,6 +151,7 @@ dialog::backdrop{background:rgba(40,30,80,0.55)}
 @media (max-width: 480px) {
   .row{grid-template-columns:1fr}
   .tabs .ico{display:none}
+  .ing-row{grid-template-columns:minmax(0,1fr) 72px 30px 40px 40px;gap:4px}
 }
 </style>
 </head>
@@ -142,6 +170,7 @@ dialog::backdrop{background:rgba(40,30,80,0.55)}
   <div class="tabs" role="tablist">
     <button data-v="week" class="on"><span class="ico" aria-hidden="true">📅</span>Εβδομάδα</button>
     <button data-v="shop"><span class="ico" aria-hidden="true">🛒</span>Λίστα αγορών</button>
+    <button data-v="my"><span class="ico" aria-hidden="true">📝</span>Συνταγές μου</button>
     <button data-v="set"><span class="ico" aria-hidden="true">⚙️</span>Ρυθμίσεις</button>
   </div>
 
@@ -155,6 +184,9 @@ dialog::backdrop{background:rgba(40,30,80,0.55)}
   </section>
   <section class="view" id="v-shop">
     <div id="shop"></div>
+  </section>
+  <section class="view" id="v-my">
+    <div id="my"></div>
   </section>
   <section class="view" id="v-set">
     <form id="f" class="card">
@@ -212,8 +244,9 @@ function buildForm() {
   $('#store').innerHTML = Object.entries(META.stores).map(([k, v]) => `<option value="${k}">${v}</option>`).join('') + '<option value="cheapest">Φθηνότερο ανά προϊόν (όλα)</option>';
   $('#diet').innerHTML = Object.entries(META.diets).map(([k, v]) => `<option value="${k}">${v}</option>`).join('');
   const sc = META.source_counts || {};
-  $('#source').innerHTML = ['all', 'builtin', 'imported'].map(k => `<option value="${k}">${META.sources[k]}${k === 'all' ? '' : ` (${sc[k] || 0})`}</option>`).join('');
-  $('#srcwrap').hidden = !sc.imported;
+  $('#source').innerHTML = ['all', 'builtin', 'imported', 'custom'].filter(k => k === 'all' || k === 'builtin' || sc[k])
+    .map(k => `<option value="${k}">${META.sources[k]}${k === 'all' ? '' : ` (${sc[k] || 0})`}</option>`).join('');
+  $('#srcwrap').hidden = !sc.imported && !sc.custom;
   $('#meals').innerHTML = MEAL_KEYS.map(k => [k, META.meals[k]]).map(([k, v]) => `<label><input type="checkbox" name="meals" value="${k}" checked> ${v}</label>`).join('');
   $('#excl').innerHTML = META.ingredients.filter(i => !i.pantry).map(i => `<label><input type="checkbox" name="exclude" value="${i.id}"> ${esc(i.name)}</label>`).join('');
 }
@@ -287,7 +320,8 @@ function render() {
         <input type="checkbox" data-i="${it.id}" ${checked[it.id] ? 'checked' : ''}>
         <div class="item-text">${esc(it.name)} — ${fmtQ(it.need, it.unit)}
           <small>${it.estimated ? '<span class="est-pill">εκτίμηση τιμής · δεν βρέθηκε προϊόν</span>' :
-            `${it.packs}× ${esc(it.product)}${s.store === 'cheapest' ? ' · ' + storeName(it.store) : ''}`}</small></div>
+            `${it.packs}× ${esc(it.product)}${s.store === 'cheapest' ? ' · ' + storeName(it.store) : ''}`}
+            ${it.leftover >= (it.unit === 'pcs' ? 1 : 5) ? `<span class="left-note">❗ Περισσεύουν ${fmtQ(it.leftover, it.unit)} — κράτα τα, θα τα ξαναχρησιμοποιήσεις</span>` : ''}</small></div>
         <div class="item-cost">${eur(it.cost)}</div></label>`).join('')}
     </div>`).join('');
   $('#shop').querySelectorAll('input[data-i]').forEach(c => c.onchange = () => {
@@ -308,7 +342,7 @@ async function openRecipe(id, portions, back) {
   const r = await api(`/recipe/${id}?portions=${portions}`);
   const scaled = `<ul>${r.ingredients.map(i => `<li>${esc(i.name)} — ${esc(i.qty)}${i.pantry ? ' <span class="muted">(ντουλάπι)</span>' : ''}</li>`).join('')}</ul>`;
   const ingHtml = r.original
-    ? `<h4>Υλικά <span class="muted" style="font-weight:400">(πρωτότυπη συνταγή, ${r.original.servings} μερίδες)</span></h4>
+    ? `<h4>Υλικά <span class="muted" style="font-weight:400">(${r.original.custom ? 'η συνταγή σου' : 'πρωτότυπη συνταγή'}, ${r.original.servings} μερίδες)</span></h4>
        <ul>${r.original.lines.map(l => `<li>${esc(l)}</li>`).join('')}</ul>
        <details><summary>Ποσότητες για ${r.persons} μερίδες (όπως κοστολογήθηκαν)</summary>${scaled}</details>`
     : `<h4>Υλικά</h4>${scaled}`;
@@ -348,6 +382,7 @@ function renderPicker(day, meal, title, alt, query) {
   };
   const tags = o => [
     o.current ? '<span class="tag">τωρινή</span>' : '',
+    o.custom ? '<span class="tag">δική μου</span>' : '',
     o.in_plan ? '<span class="tag warn">ήδη στο πλάνο</span>' : '',
     o.within_budget ? '' : '<span class="tag over">εκτός budget</span>',
   ].join('');
@@ -395,6 +430,253 @@ async function choose(day, meal, option, btn) {
   } catch (e) { toast(e.message); btn.disabled = false; }
 }
 
+// ---- Own recipes ----------------------------------------------------------
+// MY: the saved ones. ED: the recipe in the form, rows = [{name, iid, amount, text, newIng, hint, free}]:
+// iid is a known ingredient, newIng a product picked in a store ({query, type, product}), neither = not costed.
+let MY = [], ED = null;
+const UNIT_LABEL = {g: 'g', ml: 'ml', pcs: 'τεμ'};
+const ingById = id => META.ingredients.find(i => i.id === id);
+const ingByName = name => name.trim() && META.ingredients.find(i => norm(i.name) === norm(name).trim());
+const rowUnit = r => r.iid ? ingById(r.iid)?.unit : r.newIng ? r.newIng.product.unit : null;
+const rowText = r => { const u = rowUnit(r); return u && r.amount ? `${r.name.trim()} — ${fmtQ(r.amount, u)}` : r.name.trim(); };
+
+async function loadMy() { MY = await api('/custom'); if (!ED) renderMy(); }
+
+function renderMy() {
+  const kind = r => r.meal.includes('breakfast') ? META.meals.breakfast : 'Μεσημεριανό / Βραδινό';
+  $('#my').innerHTML = `<div class="card">
+    <div class="my-head"><h2>Οι συνταγές μου</h2>
+      <div class="my-actions">
+        <button class="btn-check-favourites" id="my-paste">📋 Από κείμενο</button>
+        <button class="btn-search" id="my-new">➕ Νέα συνταγή</button>
+      </div></div>
+    ${MY.length ? MY.map((r, i) => `<div class="my-item">
+        <button class="meal-name" data-i="${i}"><span class="meal-title">${esc(r.name)}</span>
+          <span class="meal-meta">${kind(r)} · ${r.servings} μερίδες · ${r.time}′</span></button>
+        <button class="btn-view" data-place="${i}" title="Βάλ' τη στο πλάνο" aria-label="Βάλ' τη στο πλάνο">📅</button>
+        <button class="btn-view" data-edit="${i}" title="Επεξεργασία" aria-label="Επεξεργασία">✏️</button>
+        <button class="btn-view danger" data-del="${i}" title="Διαγραφή" aria-label="Διαγραφή">🗑️</button>
+      </div>`).join('')
+      : `<p class="muted" style="margin-top:15px">Δεν έχεις γράψει δική σου συνταγή ακόμα. Γράψ' τη στη φόρμα ή επικόλλησέ τη από όπου τη βρήκες —
+         μετά μπαίνει στα πλάνα όπως όλες οι άλλες.</p>`}
+  </div>`;
+  $('#my-new').onclick = () => openEditor(null, false);
+  $('#my-paste').onclick = () => openEditor(null, true);
+  $('#my').querySelectorAll('.meal-name').forEach(b => b.onclick = () => openRecipe(MY[b.dataset.i].id, MY[b.dataset.i].servings));
+  $('#my').querySelectorAll('[data-edit]').forEach(b => b.onclick = () => openEditor(MY[b.dataset.edit], false));
+  $('#my').querySelectorAll('[data-place]').forEach(b => b.onclick = () => placeDialog(MY[b.dataset.place]));
+  $('#my').querySelectorAll('[data-del]').forEach(b => b.onclick = async () => {
+    // Two clicks, so that a recipe is not deleted by mistake
+    if (!b.classList.contains('armed')) {
+      b.classList.add('armed'); toast('Πάτα ξανά 🗑️ για διαγραφή');
+      setTimeout(() => b.classList.remove('armed'), 3000); return;
+    }
+    b.disabled = true;
+    try { await api(`/custom/${encodeURIComponent(MY[b.dataset.del].id)}/delete`, {}); await refreshMeta(); await loadMy(); toast('Η συνταγή διαγράφηκε'); }
+    catch (e) { toast(e.message); b.disabled = false; }
+  });
+}
+
+function openEditor(r, paste) {
+  ED = r ? {
+    id: r.id, name: r.name, meal: r.meal.includes('breakfast') ? 'breakfast' : 'main', servings: r.servings, time: r.time,
+    steps: r.steps.join('\n'),
+    rows: r.lines.map(l => ({name: l.ingredient ? ingById(l.ingredient)?.name || l.text : l.text, iid: l.ingredient, amount: l.amount, text: l.text})),
+  } : {id: null, name: '', meal: 'main', servings: 4, time: 30, steps: '', rows: [{name: ''}, {name: ''}, {name: ''}]};
+  renderEditor(paste);
+  scrollTo(0, 0);
+}
+
+function renderEditor(paste) {
+  $('#my').innerHTML = `<div class="card ed">
+    <div class="my-head"><h2>${ED.id ? 'Επεξεργασία συνταγής' : 'Νέα συνταγή'}</h2></div>
+    <details class="choices" style="margin:0" ${paste ? 'open' : ''}><summary>📋 Επικόλληση από κείμενο</summary>
+      <label class="field" style="margin-top:8px"><span>Επικόλλησε όλη τη συνταγή <span class="hint">— όνομα, υλικά, εκτέλεση. Μετά διόρθωσε ό,τι χρειάζεται στη φόρμα.</span></span>
+        <textarea id="ed-text" rows="8" placeholder="Κοτόπουλο με philadelphia&#10;4 μερίδες, 40 λεπτά&#10;Υλικά&#10;600 γρ. φιλέτο κοτόπουλο&#10;1 κουτί philadelphia 200g&#10;Εκτέλεση&#10;…"></textarea></label>
+      <button type="button" class="btn-check-favourites" id="ed-parse" style="margin-top:10px">Συμπλήρωσε τη φόρμα</button>
+    </details>
+    <label class="field">Όνομα<input id="ed-name" value="${esc(ED.name)}" placeholder="π.χ. Κοτόπουλο με philadelphia"></label>
+    <div class="row">
+      <label class="field">Γεύμα<select id="ed-meal"><option value="main">Μεσημεριανό / Βραδινό</option><option value="breakfast">Πρωινό</option></select></label>
+      <div class="row">
+        <label class="field">Μερίδες<input id="ed-serv" type="number" min="1" max="24" value="${ED.servings}"></label>
+        <label class="field">Λεπτά<input id="ed-time" type="number" min="1" max="600" value="${ED.time}"></label>
+      </div>
+    </div>
+    <div class="field"><span>Υλικά <span class="hint">— ποσότητες για τις μερίδες της συνταγής. Ό,τι δεν είναι υλικό από τη λίστα ή προϊόν από το σούπερ (π.χ. αλάτι) δεν κοστολογείται.</span></span>
+      <div class="ing-rows" id="ed-rows"></div>
+      <button type="button" class="btn-check-favourites" id="ed-add">➕ Υλικό</button>
+    </div>
+    <label class="field"><span>Εκτέλεση <span class="hint">— ένα βήμα σε κάθε γραμμή</span></span><textarea id="ed-steps" rows="6">${esc(ED.steps)}</textarea></label>
+    <div class="actions">
+      <button type="button" class="btn-search" id="ed-save">💾 Αποθήκευση</button>
+      <button type="button" class="btn-check-favourites" id="ed-cancel">Άκυρο</button>
+    </div>
+  </div>
+  <datalist id="inglist">${META.ingredients.map(i => `<option value="${esc(i.name)}">`).join('')}</datalist>`;
+  $('#ed-meal').value = ED.meal;
+  renderRows();
+  $('#ed-add').onclick = () => { ED.rows.push({name: ''}); renderRows(); $('#ed-rows').lastElementChild.querySelector('.ing-name').focus(); };
+  $('#ed-cancel').onclick = () => { ED = null; renderMy(); };
+  $('#ed-save').onclick = e => saveEditor(e.currentTarget);
+  $('#ed-parse').onclick = async e => {
+    const text = $('#ed-text').value.trim();
+    if (!text) { toast('Επικόλλησε πρώτα τη συνταγή'); return; }
+    e.currentTarget.disabled = true;
+    try {
+      const d = await api('/custom/parse', {text});
+      Object.assign(ED, {
+        name: d.name || $('#ed-name').value, meal: $('#ed-meal').value, servings: d.servings || +$('#ed-serv').value,
+        time: d.time || +$('#ed-time').value, steps: d.steps.join('\n') || $('#ed-steps').value,
+        rows: d.lines.map(l => ({name: l.ingredient ? ingById(l.ingredient)?.name : l.title, iid: l.ingredient, amount: l.amount,
+                                 text: l.text, hint: l.hint, free: l.free})),
+      });
+      if (!ED.rows.length) ED.rows.push({name: ''});
+      renderEditor(false);
+      const unknown = ED.rows.filter(r => !r.iid && !r.free).length;
+      toast(unknown ? `Έλεγξε τη φόρμα — ${unknown === 1 ? "1 υλικό θέλει" : unknown + " υλικά θέλουν"} 🔍` : 'Έλεγξε τη φόρμα και αποθήκευσε');
+    } catch (err) { toast(err.message); e.currentTarget.disabled = false; }
+  };
+}
+
+function rowStatus(r) {
+  const orig = r.text && r.text !== rowText(r) ? ` <span class="muted">· «${esc(r.text)}»</span>` : '';
+  if (r.iid) return `✓ ${esc(ingById(r.iid)?.name)}${orig}`;
+  if (r.newIng) {
+    const p = r.newIng.product;
+    return `🆕 ${esc(p.name)} · ${esc(storeName(p.store))} · ${eur(p.price)} <span class="muted">· νέο υλικό, θα το βρίσκεις και στις επόμενες συνταγές</span>`;
+  }
+  if (!r.name.trim()) return '';
+  return `<span class="warn">${r.free ? 'Δεν κοστολογείται' : 'Δεν το βρήκα στη λίστα — πάτα 🔍 να διαλέξεις προϊόν, αλλιώς δεν κοστολογείται'}</span>${orig}`;
+}
+
+function renderRows() {
+  $('#ed-rows').innerHTML = ED.rows.map((r, k) => `<div class="ing-row" data-k="${k}">
+    <input class="ing-name" list="inglist" value="${esc(r.name)}" placeholder="Υλικό, π.χ. Φέτα" aria-label="Υλικό" autocomplete="off">
+    <input class="ing-qty" type="number" min="0" step="any" value="${r.amount ?? ''}" placeholder="Ποσ." aria-label="Ποσότητα">
+    <span class="ing-unit"></span>
+    <button type="button" class="btn-view ing-find" title="Βρες το στο σούπερ" aria-label="Βρες το στο σούπερ">🔍</button>
+    <button type="button" class="btn-view ing-del" title="Αφαίρεση" aria-label="Αφαίρεση">✕</button>
+    <div class="ing-status"></div>
+  </div>`).join('');
+  $('#ed-rows').querySelectorAll('.ing-row').forEach(el => {
+    const r = ED.rows[+el.dataset.k];
+    const update = () => {
+      el.querySelector('.ing-unit').textContent = UNIT_LABEL[rowUnit(r)] || '';
+      el.querySelector('.ing-status').innerHTML = rowStatus(r);
+      el.querySelector('.ing-find').disabled = !!r.iid;
+    };
+    el.querySelector('.ing-name').oninput = e => {
+      r.name = e.target.value; r.text = ''; r.free = false;
+      const ing = ingByName(r.name);
+      r.iid = ing ? ing.id : null;
+      if (ing) r.newIng = null;
+      update();
+    };
+    el.querySelector('.ing-qty').oninput = e => { r.amount = +e.target.value || null; r.text = ''; update(); };
+    el.querySelector('.ing-find').onclick = () => {
+      if (!r.name.trim()) { toast('Γράψε πρώτα το υλικό'); el.querySelector('.ing-name').focus(); return; }
+      openProductSearch(r);
+    };
+    el.querySelector('.ing-del').onclick = () => { ED.rows.splice(+el.dataset.k, 1); renderRows(); };
+    update();
+  });
+}
+
+async function openProductSearch(r) {
+  const s = PLAN ? PLAN.settings.store : 'sklavenitis';
+  openDialog(`<h2>Βρες «${esc(r.name.trim())}» στο σούπερ</h2>
+    <div class="pick-note">Ψάχνει με τον τίτλο — το μέγεθος δεν χρειάζεται να είναι ίδιο με της συνταγής. Αν η συσκευασία είναι μεγαλύτερη,
+      στη λίστα αγορών θα δεις ❗ με ό,τι περισσεύει.</div>
+    <div class="pick-tools">
+      <input type="search" class="pick-search" id="pq" value="${esc(r.newIng?.query || r.name.trim())}" aria-label="Τι να ψάξω">
+      <button class="btn-check-favourites" id="pgo">🔍 Ψάξε</button>
+    </div>
+    <div class="row" style="margin-bottom:12px">
+      <label class="field">Supermarket<select id="pstore"><option value="all">Όλα</option>${Object.entries(META.stores).map(([k, v]) => `<option value="${k}">${v}</option>`).join('')}</select></label>
+      <label class="field">Είδος <select id="ptype">${Object.entries(META.types).map(([k, v]) => `<option value="${k}">${v}</option>`).join('')}</select></label>
+    </div>
+    <div class="pick-count" id="pn"></div>
+    <div class="choice-list pick-list" id="plist"></div>
+    <button class="btn-check-favourites" onclick="dlg.close()">Κλείσιμο</button>`);
+  $('#pstore').value = META.stores[s] ? s : 'all';
+  let typeSet = !!r.newIng;
+  if (r.newIng) $('#ptype').value = r.newIng.type;
+  $('#ptype').onchange = () => typeSet = true;
+  const per = p => p.unit === 'pcs' ? `${eur(p.price / p.size)}/τεμ` : `${eur(p.price / p.size * 1000)}/${p.unit === 'g' ? 'kg' : 'l'}`;
+  const run = async () => {
+    const q = $('#pq').value.trim();
+    if (!q) return;
+    $('#pn').innerHTML = '<div class="spinner"></div>Ψάχνω…'; $('#plist').innerHTML = '';
+    let res;
+    try { res = await api(`/products?q=${encodeURIComponent(q)}&store=${$('#pstore').value}`); }
+    catch (e) { $('#pn').textContent = e.message; return; }
+    if (!typeSet) $('#ptype').value = res.type;
+    const multi = $('#pstore').value === 'all';
+    $('#pn').textContent = res.products.length ? `${res.products.length} προϊόντα — διάλεξε αυτό που θα αγόραζες` : 'Δεν βρέθηκε τίποτα. Δοκίμασε άλλη λέξη.';
+    $('#plist').innerHTML = res.products.map((p, i) => `<button class="choice" data-i="${i}">
+        <span class="pick-main">${esc(p.name)}<small>${fmtQ(p.size, p.unit)} · ${per(p)}${multi ? ' · ' + esc(storeName(p.store)) : ''}</small></span>
+        <span class="pick-cost">${eur(p.price)}</span></button>`).join('');
+    $('#plist').querySelectorAll('.choice').forEach(b => b.onclick = () => {
+      const p = res.products[+b.dataset.i];
+      r.newIng = {query: q, type: $('#ptype').value, product: {store: p.store, name: p.name, price: p.price, size: p.size, unit: p.unit}};
+      r.iid = null;
+      if (!r.amount && r.hint && r.hint.unit === p.unit) r.amount = r.hint.amount;
+      $('#dlg').close(); renderRows();
+    });
+  };
+  $('#pgo').onclick = run;
+  $('#pstore').onchange = run;
+  $('#pq').onkeydown = e => { if (e.key === 'Enter') run(); };
+  run();
+}
+
+async function saveEditor(btn) {
+  const rows = ED.rows.filter(r => r.name.trim() || r.text);
+  const body = {
+    id: ED.id, name: $('#ed-name').value, meal: $('#ed-meal').value, servings: +$('#ed-serv').value, time: +$('#ed-time').value,
+    steps: $('#ed-steps').value.split('\n'),
+    lines: rows.map(r => ({text: r.text || rowText(r), ingredient: r.iid || null, amount: r.amount || null,
+                           new: r.newIng ? {name: r.name.trim(), ...r.newIng} : null})),
+  };
+  btn.disabled = true;
+  let saved;
+  try { saved = await api('/custom', body); }
+  catch (e) { toast(e.message); btn.disabled = false; return; }
+  ED = null;
+  await refreshMeta();
+  if (PLAN) { PLAN = await api('/plan'); render(); }
+  await loadMy();
+  toast('Η συνταγή αποθηκεύτηκε');
+  if (!body.id && PLAN) placeDialog(saved);
+}
+
+// Ingredients and recipe counts change with own recipes
+async function refreshMeta() {
+  META = await api('/meta');
+  const s = PLAN ? PLAN.settings : readForm();
+  buildForm(); fillForm(s);
+}
+
+function placeDialog(r) {
+  if (!PLAN) { toast('Φτιάξε πρώτα ένα πλάνο'); return; }
+  const meals = r.meal.includes('breakfast') ? ['breakfast'] : ['lunch', 'dinner'];
+  const slots = [];
+  PLAN.days.forEach((d, di) => meals.forEach(m => { const x = d.meals[m]; if (x && !x.leftover) slots.push([di, m, x]); }));
+  openDialog(`<h2>Βάλ' τη στο πλάνο</h2>
+    <div class="pick-note">Σε ποιο γεύμα να μπει «${esc(r.name)}»;</div>
+    ${slots.length ? `<div class="choice-list pick-list">${slots.map(([d, m, x], i) => `<button class="choice ${x.recipe_id === r.id ? 'choice-selected' : ''}" data-i="${i}">
+        <span class="pick-main">${esc(slotName([d, m]))}<small>Τώρα: ${esc(x.name)}${x.cook_portions > PLAN.settings.persons ? ' · και μεσημεριανό της επόμενης' : ''}</small></span></button>`).join('')}</div>`
+      : '<p class="muted" style="margin-top:12px">Το πλάνο δεν έχει τέτοιο γεύμα.</p>'}
+    <button class="btn-check-favourites" onclick="dlg.close()">Όχι τώρα</button>`);
+  $('#dlgc').querySelectorAll('.choice').forEach(b => b.onclick = async () => {
+    const [d, m] = slots[+b.dataset.i];
+    b.disabled = true;
+    try { PLAN = await api('/choose', {day: d, meal: m, recipe_id: r.id}); render(); $('#dlg').close(); toast(`Μπήκε: ${slotName([d, m])}`); }
+    catch (e) { toast(e.message); b.disabled = false; }
+  });
+}
+
 function loading(on) {
   $('#loading').classList.toggle('hidden', !on);
   $('#sum').hidden = $('#days').hidden = on;
@@ -424,6 +706,7 @@ $('#refresh').onclick = async e => {
   PLAN = await api('/plan');
   if (PLAN) fillForm(PLAN.settings);
   render();
+  loadMy();
 })();
 </script>
 </body>

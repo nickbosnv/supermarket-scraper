@@ -5,7 +5,7 @@ import pytest
 import app as app_module
 import meal_planner
 from app import app, meal_planner_search
-from meal_planner import DATA, Planner
+from meal_planner import DATA, Planner, custom
 from meal_planner.pricing import PriceProvider
 
 
@@ -108,6 +108,35 @@ def test_cost_picks_cheapest_total_for_the_quantity(provider):
 
     # 2 x 1kg costs less than 5kg, although 5kg is cheaper per kg
     assert (cost['product'], cost['packs'], cost['cost'], cost['estimated']) == ('Ρύζι 1kg', 2, 3.0, False)
+    # What is left of the packages is kept for another time
+    assert cost['leftover'] == 500
+
+
+def test_cost_buys_the_product_the_user_picked(provider):
+    provider.register(lambda store, query: [
+        {'name': 'Τυρί Κρέμα 200g', 'price': 1.5, 'size': 200, 'size_unit': 'g'},
+        {'name': 'Philadelphia Τυρί Κρέμα 300g', 'price': 3.2, 'size': 300, 'size_unit': 'g'},
+    ])
+    ingredient = {'query': 'philadelphia', 'unit': 'g', 'fallback_price': 10.0,
+                  'product': {'store': 'ab', 'name': 'Philadelphia Τυρί Κρέμα 300g'}}
+
+    picked = provider.cost('my_philadelphia', ingredient, 200, ['ab'])
+    other_store = provider.cost('my_philadelphia', ingredient, 200, ['mymarket'])
+
+    # A bigger package than the recipe needs, with 100g left over
+    assert (picked['product'], picked['cost'], picked['leftover']) == ('Philadelphia Τυρί Κρέμα 300g', 3.2, 100)
+    # Other stores search by the title, cheapest first
+    assert other_store['product'] == 'Τυρί Κρέμα 200g'
+
+
+def test_products_have_sizes_in_the_planner_units(provider):
+    provider.register(lambda store, query: [
+        {'name': 'Κρέμα Γάλακτος 1lt', 'price': 4.0, 'size': 1, 'size_unit': 'l'},
+        {'name': 'Χωρίς μέγεθος', 'price': 1.0, 'size': None, 'size_unit': None},
+    ])
+
+    assert provider.products('ab', 'κρέμα') == [
+        {'name': 'Κρέμα Γάλακτος 1lt', 'price': 4.0, 'size': 1000.0, 'unit': 'ml', 'url': None, 'store': 'ab'}]
 
 
 def test_cost_is_estimated_without_products(provider):
@@ -321,3 +350,134 @@ def test_swap_without_plan(client):
 
 def test_unknown_recipe(client):
     assert client.get('/meals/api/recipe/nope').status_code == 404
+
+
+# --- Own recipes ---
+
+def test_parse_pasted_recipe(planner):
+    draft = custom.parse("""Κοτόπουλο με philadelphia
+4 μερίδες, 40 λεπτά
+Υλικά
+- 600 γρ. φιλέτο κοτόπουλο
+- 1 κουτί philadelphia 200g
+- 2 κ.σ. ελαιόλαδο
+- αλάτι, πιπέρι
+Εκτέλεση
+1. Σοτάρουμε το κοτόπουλο.
+2. Προσθέτουμε το τυρί.""", planner.ingredients)
+
+    assert (draft['name'], draft['servings'], draft['time']) == ('Κοτόπουλο με philadelphia', 4, 40)
+    assert [(l['ingredient'], l['amount']) for l in draft['lines']] == [
+        ('chicken_breast', 600), (None, None), ('olive_oil', 30), (None, None)]
+    # Searched in the stores by the title only, with the size as the quantity
+    assert draft['lines'][1]['title'] == 'philadelphia'
+    assert draft['lines'][1]['hint'] == {'unit': 'g', 'amount': 200}
+    assert draft['lines'][3]['free']
+    assert draft['steps'] == ['Σοτάρουμε το κοτόπουλο.', 'Προσθέτουμε το τυρί.']
+
+
+NEW_RECIPE = {
+    'name': 'Κοτόπουλο με philadelphia', 'meal': 'main', 'servings': 4, 'time': 40,
+    'steps': ['Σοτάρουμε.', ' '],
+    'lines': [
+        {'text': '600 γρ. κοτόπουλο', 'ingredient': 'chicken_breast', 'amount': 600},
+        {'text': '1 κουτί philadelphia', 'amount': 200, 'new': {
+            'name': 'philadelphia', 'query': 'philadelphia', 'type': 'dairy',
+            'product': {'store': 'ab', 'name': 'Philadelphia 300g', 'price': 3.0, 'size': 300, 'unit': 'g'}}},
+        {'text': 'αλάτι, πιπέρι'},
+    ],
+}
+
+
+def test_save_own_recipe_with_a_new_ingredient(tmp_path, provider):
+    planner = Planner(DATA, str(tmp_path), provider)
+
+    recipe = custom.save(str(tmp_path), planner, NEW_RECIPE)
+    planner.reload()
+
+    assert recipe['id'] == 'my_kotopoylo_me_philadelphia'
+    assert recipe['ingredients'] == {'chicken_breast': 600, 'my_philadelphia': 200}
+    assert recipe['display'] == ['600 γρ. κοτόπουλο', '1 κουτί philadelphia', 'αλάτι, πιπέρι']
+    assert recipe['steps'] == ['Σοτάρουμε.']
+    assert recipe['category'] == 'chicken'
+    ingredient = planner.ingredients['my_philadelphia']
+    assert (ingredient['name'], ingredient['unit'], ingredient['type'], ingredient['fallback_price']) == \
+        ('Philadelphia', 'g', 'dairy', 10.0)
+    assert ingredient['product'] == {'store': 'ab', 'name': 'Philadelphia 300g'}
+    own = planner.recipes[recipe['id']]
+    assert own['custom'] and not own['imported']
+    assert planner.eligible(planner.clean_settings({'source': 'custom'}), 'dinner') == [recipe['id']]
+    assert recipe['id'] not in planner.eligible(planner.clean_settings({'source': 'imported'}), 'dinner')
+
+    # The same product in a second recipe reuses the ingredient
+    second = custom.save(str(tmp_path), planner, {**NEW_RECIPE, 'name': 'Άλλη'})
+    assert set(second['ingredients']) == {'chicken_breast', 'my_philadelphia'}
+
+    # Editing keeps the id
+    edited = custom.save(str(tmp_path), planner, {**NEW_RECIPE, 'id': recipe['id'], 'servings': 2})
+    assert edited['id'] == recipe['id']
+    assert [r['servings'] for r in custom.recipes(str(tmp_path))] == [2, 4]
+
+
+@pytest.mark.parametrize('change, error', [
+    ({'name': ' '}, 'Δώσε όνομα στη συνταγή.'),
+    ({'lines': [{'text': 'αλάτι'}]}, 'Η συνταγή χρειάζεται τουλάχιστον ένα υλικό με ποσότητα.'),
+    ({'lines': [{'text': 'κοτόπουλο', 'ingredient': 'chicken_breast'}]}, 'Βάλε ποσότητα για «κοτόπουλο».'),
+    ({'lines': [{'text': 'x', 'ingredient': 'nope', 'amount': 1}]}, 'Άγνωστο υλικό: nope'),
+    ({'id': 'my_nope'}, 'Η συνταγή δεν βρέθηκε.'),
+])
+def test_save_own_recipe_checks_the_form(tmp_path, provider, change, error):
+    planner = Planner(DATA, str(tmp_path), provider)
+
+    with pytest.raises(ValueError, match=error):
+        custom.save(str(tmp_path), planner, {**NEW_RECIPE, **change})
+
+
+@pytest.fixture
+def own_client(client, tmp_path, monkeypatch):
+    """The routes with own recipes in the temporary folder; the planner gets its recipes back afterwards."""
+    planner = meal_planner.planner
+    before = planner.recipes, planner.ingredients
+    monkeypatch.setattr(meal_planner, 'STATE', str(tmp_path))
+    monkeypatch.setattr(planner, 'state_dir', str(tmp_path))
+    yield client
+    planner.recipes, planner.ingredients = before
+
+
+def test_own_recipe_routes(own_client):
+    recipe = own_client.post('/meals/api/custom', json=NEW_RECIPE).get_json()
+
+    assert [r['id'] for r in own_client.get('/meals/api/custom').get_json()] == [recipe['id']]
+    meta = own_client.get('/meals/api/meta').get_json()
+    assert meta['source_counts']['custom'] == 1
+    assert 'Philadelphia' in [i['name'] for i in meta['ingredients']]
+
+    # It can be put in the plan, and then not deleted
+    own_client.post('/meals/api/plan', json={'meals': ['dinner'], 'leftovers': False})
+    plan = own_client.post('/meals/api/choose', json={'day': 1, 'meal': 'dinner', 'recipe_id': recipe['id']}).get_json()
+    item = next(i for a in plan['shopping'] for i in a['items'] if i['id'] == 'my_philadelphia')
+    assert item['leftover'] > 0
+    assert own_client.post(f'/meals/api/custom/{recipe["id"]}/delete').status_code == 400
+    # Nor become a breakfast while it is a dinner
+    response = own_client.post('/meals/api/custom', json={**NEW_RECIPE, 'id': recipe['id'], 'meal': 'breakfast'})
+    assert response.status_code == 400
+
+    own_client.post('/meals/api/plan', json={'meals': ['breakfast']})
+    assert own_client.post(f'/meals/api/custom/{recipe["id"]}/delete').get_json() == {'ok': True}
+    assert own_client.get('/meals/api/custom').get_json() == []
+    assert recipe['id'] not in meal_planner.planner.recipes
+
+
+def test_parse_route(own_client):
+    draft = own_client.post('/meals/api/custom/parse', json={'text': 'Σαλάτα\nΥλικά\n2 ντομάτες'}).get_json()
+
+    assert draft['name'] == 'Σαλάτα'
+    assert draft['lines'][0]['ingredient'] == 'tomato'
+
+
+def test_products_route(own_client):
+    found = own_client.get('/meals/api/products?q=φέτα&store=ab').get_json()
+
+    assert {p['store'] for p in found['products']} == {'ab'}
+    assert found['type'] == 'dairy'
+    assert own_client.get('/meals/api/products?q=').status_code == 400

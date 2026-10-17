@@ -13,7 +13,10 @@ from .pricing import STORES
 DAYS = ["Δευτέρα", "Τρίτη", "Τετάρτη", "Πέμπτη", "Παρασκευή", "Σάββατο", "Κυριακή"]
 MEALS = {"breakfast": "Πρωινό", "lunch": "Μεσημεριανό", "dinner": "Βραδινό"}
 DIETS = {"all": "Όλα", "vegetarian": "Χορτοφαγικό", "fasting": "Νηστίσιμο"}
-SOURCES = {"all": "Όλες", "builtin": "Μόνο ενσωματωμένες", "imported": "Μόνο εισαγόμενες"}
+SOURCES = {"all": "Όλες", "builtin": "Μόνο ενσωματωμένες", "imported": "Μόνο εισαγόμενες",
+           "custom": "Μόνο δικές μου"}
+# The user's own recipes, written from the page (custom.py)
+CUSTOM_RECIPES = "recipes_custom.json"
 log = logging.getLogger(__name__)
 SAMPLES = 300
 MEAL_ORDER = {"breakfast": 0, "lunch": 1, "dinner": 2}
@@ -34,7 +37,7 @@ DEFAULTS = {
 
 class Planner:
     def __init__(self, data_dir, state_dir, provider):
-        """data_dir has the built-in ingredients and recipes, state_dir the imported ones."""
+        """data_dir has the built-in ingredients and recipes, state_dir the imported and the user's own."""
         self.data_dir = data_dir
         self.state_dir = state_dir
         self.provider = provider
@@ -59,7 +62,8 @@ class Planner:
                             raise ValueError(f"Συνταγή {r['id']}: άγνωστα υλικά {missing}")
                         log.warning("Skipping recipe %s: unknown ingredients %s", r["id"], missing)
                         continue
-                    r["imported"] = path != builtin
+                    r["custom"] = os.path.basename(path) == CUSTOM_RECIPES
+                    r["imported"] = path != builtin and not r["custom"]
                     recipes[r["id"]] = r
         self.ingredients, self.recipes = ings, recipes
 
@@ -85,7 +89,8 @@ class Planner:
         return list(STORES) if s["store"] == "cheapest" else [s["store"]]
 
     def _ok(self, r, s):
-        if s["source"] != "all" and s["source"] != ("imported" if r["imported"] else "builtin"):
+        origin = "custom" if r["custom"] else "imported" if r["imported"] else "builtin"
+        if s["source"] != "all" and s["source"] != origin:
             return False
         types = {self.ingredients[i]["type"] for i in r["ingredients"]}
         diet = r.get("diet") or {}
@@ -154,18 +159,17 @@ class Planner:
                     continue
                 need[iid] += q * factor
         stores = self.stores(s)
-        items, total, waste, est = [], 0.0, 0.0, 0
+        items, total, est = [], 0.0, 0
         for iid, q in need.items():
             ing = self.ingredients[iid]
             if ing["unit"] == "pcs":
                 q = math.ceil(q - 1e-9)
             c = self.provider.cost(iid, ing, q, stores)
             total += c["cost"]
-            waste += c["waste"]
             est += c["estimated"]
             items.append({"id": iid, "name": ing["name"], "aisle": ing["aisle"],
                           "need": round(q, 1), "unit": ing["unit"], **c})
-        return {"items": items, "total": round(total, 2), "waste": round(waste, 2), "estimated": est}
+        return {"items": items, "total": round(total, 2), "estimated": est}
 
     # ---- public API --------------------------------------------------
     def generate(self, raw_settings, seed=None):
@@ -200,8 +204,9 @@ class Planner:
         self.provider.warm(self.ingredients, sorted(used), self.stores(s))
 
     def _objective(self, cooks, shop, s):
+        # Package leftovers are not a cost: they are kept for another time
         over = max(0.0, shop["total"] - s["budget"])
-        return over * 10 + shop["waste"] + self._variety_penalty(cooks)
+        return over * 10 + self._variety_penalty(cooks)
 
     def _improve(self, cooks, s, rng, pools, passes=3, tries=10):
         cooks = [dict(c) for c in cooks]
@@ -234,14 +239,14 @@ class Planner:
 
     def _with_recipe(self, cooks, target, rid, s):
         """
-        Shopping list and score if target cooks rid: within the budget first, by less waste and
-        more variety, then over the budget, cheapest first.
+        Shopping list and score if target cooks rid: within the budget first, by more variety and then
+        cheaper, then over the budget, cheapest first.
         """
         old = target["recipe_id"]
         target["recipe_id"] = rid
         shop = self.shopping(cooks, s)
         over = shop["total"] > s["budget"]
-        score = (over, shop["total"] if over else shop["waste"] + self._variety_penalty(cooks))
+        score = (over, shop["total"]) if over else (over, self._variety_penalty(cooks), shop["total"])
         target["recipe_id"] = old
         return score, shop
 
@@ -267,7 +272,7 @@ class Planner:
     def alternatives(self, plan, day, meal):
         """
         Every recipe that fits a meal, with the plan total if it is chosen, best first
-        (within the budget, then less waste and more variety).
+        (within the budget, then more variety and cheaper).
         """
         s, cooks = plan["settings"], plan["cooks"]
         target = self._target(plan, day, meal)
@@ -279,7 +284,7 @@ class Planner:
             score, shop = self._with_recipe(cooks, target, rid, s)
             r = self.recipes[rid]
             options.append((score, r["name"], {
-                "id": rid, "name": r["name"], "time": r["time"], "imported": r["imported"],
+                "id": rid, "name": r["name"], "time": r["time"], "imported": r["imported"], "custom": r["custom"],
                 "current": rid == target["recipe_id"], "in_plan": rid in in_use and rid != target["recipe_id"],
                 "total": shop["total"], "within_budget": shop["total"] <= s["budget"],
                 "ingredients": [self.ingredients[i]["name"] for i in r["ingredients"]
@@ -323,7 +328,7 @@ class Planner:
         return {
             "settings": s, "cooks": cooks, "days": days,
             "shopping": [{"aisle": a, "items": groups[a]} for a in sorted(groups)],
-            "total": shop["total"], "waste": shop["waste"], "estimated": shop["estimated"],
+            "total": shop["total"], "estimated": shop["estimated"],
             "by_store": {k: round(v, 2) for k, v in by_store.items()},
             "within_budget": shop["total"] <= s["budget"],
             "generated_at": generated_at or datetime.now().isoformat(timespec="seconds"),
@@ -341,8 +346,8 @@ class Planner:
         out = {"id": rid, "name": r["name"], "time": r["time"], "persons": persons,
                "ingredients": ings, "steps": r["steps"], "source": r.get("source"),
                "source_name": r.get("source_name")}
-        if r.get("display"):  # imported recipe: show the original ingredient lines
-            out["original"] = {"servings": r["servings"], "lines": r["display"]}
+        if r.get("display"):  # imported or own recipe: show the ingredient lines as written
+            out["original"] = {"servings": r["servings"], "lines": r["display"], "custom": r["custom"]}
         return out
 
 

@@ -100,24 +100,29 @@ class PriceProvider:
         match = [norm(m) for m in ing.get("match", [])]
         excl = [norm(x) for x in ing.get("exclude", [])]
         opts = []
-        for r in raw:
-            n = normalize_size(r.get("size"), r.get("size_unit"))
-            name = r.get("name", "")
-            nn = norm(name)
-            if not n or n[0] != ing["unit"]:
+        for p in map(_product, raw):
+            nn = norm(p["name"]) if p else ""
+            if not p or p["unit"] != ing["unit"]:
                 continue
             if match and not any(m in nn for m in match):
                 continue
             if any(x in nn for x in excl):
                 continue
-            try:
-                price = float(r["price"])
-            except (KeyError, TypeError, ValueError):
-                continue
-            opts.append({"name": name, "price": price, "size": n[1], "url": r.get("url")})
+            opts.append({k: p[k] for k in ("name", "price", "size", "url")})
         with self.lock:
             self.cache[key] = {"t": time.time(), "opts": opts}
         return opts
+
+    def products(self, store, query):
+        """Products of one store for a search, with sizes in g, ml or pcs (not cached)."""
+        if not self.search_fn:
+            return []
+        try:
+            raw = self.search_fn(store, query) or []
+        except Exception as e:
+            log.warning("search %s/%s failed: %s", store, query, e)
+            return []
+        return [{**p, "store": store} for p in map(_product, raw) if p]
 
     def warm(self, ingredients, ing_ids, stores, force=False):
         jobs = [(s, i) for s in stores for i in ing_ids]
@@ -126,21 +131,40 @@ class PriceProvider:
         self.save()
 
     def cost(self, ing_id, ing, need, stores):
-        """Cheapest way to buy the quantity `need` (in the unit of the ingredient)."""
+        """
+        Cheapest way to buy the quantity `need` (in the unit of the ingredient). Packages are bigger than
+        needed most of the time: "leftover" is what is left, for another time.
+        In the store of the product the user picked for an ingredient ("product"), only that product is bought.
+        """
+        pick = ing.get("product") or {}
         best = None
         for s in stores:
-            for o in self.options(s, ing_id, ing):
+            opts = self.options(s, ing_id, ing)
+            if pick.get("store") == s:
+                opts = [o for o in opts if norm(o["name"]) == norm(pick["name"])] or opts
+            for o in opts:
                 packs = max(1, math.ceil(need / o["size"] - 1e-9))
                 c = packs * o["price"]
                 if best is None or c < best["cost"]:
-                    bought = packs * o["size"]
                     best = {
                         "store": s, "product": o["name"], "url": o.get("url"), "packs": packs,
                         "pack_size": o["size"], "pack_price": o["price"], "cost": round(c, 2),
-                        "waste": round(c * (bought - need) / bought, 2), "estimated": False,
+                        "leftover": round(packs * o["size"] - need, 1), "estimated": False,
                     }
         if best:
             return best
         per = ing["fallback_price"] / (1000 if ing["unit"] in ("g", "ml") else 1)
         return {"store": None, "product": None, "url": None, "packs": None, "pack_size": None,
-                "pack_price": None, "cost": round(need * per, 2), "waste": 0.0, "estimated": True}
+                "pack_price": None, "cost": round(need * per, 2), "leftover": 0, "estimated": True}
+
+
+def _product(r):
+    """A search result as {name, price, size, unit} with the size in g, ml or pcs, or None."""
+    n = normalize_size(r.get("size"), r.get("size_unit"))
+    try:
+        price = float(r["price"])
+    except (KeyError, TypeError, ValueError):
+        return None
+    if not n:
+        return None
+    return {"name": r.get("name", ""), "price": price, "size": n[1], "unit": n[0], "url": r.get("url")}
